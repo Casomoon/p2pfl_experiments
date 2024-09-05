@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "p2pfl-experiments"
+version = "0.1.0"
+description = ""
+authors = ["Carsten Montag <carsten.montag@btc-ag.com>"]
+readme = "README.md"
+packages = [
+    {include = "src"}
+]
+
+[tool.poetry.scripts]
+start_p2p = "src.entrypoints.run_p2pfl_experiment:main"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+grpcio = "^1.62.0"
+grpcio-tools = "^1.62.0"
+matplotlib = "^3.8.3"
+psutil = "^5.9.8"
+numpy = ">=1.20,<2.0"
+torch = { version = "2.2.2+cu121" }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
