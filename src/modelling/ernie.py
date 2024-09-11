@@ -1,64 +1,84 @@
-from transformers import BertForSequenceClassification, get_linear_schedule_with_warmup
 import torch
-import os
-from logging import Logger
-from numpy import ndarray
-from torch.utils.data import DataLoader
-from torch.optim import AdamW
+import torch.nn as nn
+import pytorch_lightning as pl
+from torchmetrics import Accuracy
+from transformers import BertForSequenceClassification
+from typing import Optional, Tuple
 
-class BERT_Peer():
-    def __init__(self, 
-                cid : int, 
-                logger : Logger, 
-                trainloader : DataLoader,
-                valloader : DataLoader) -> None:
-        self.cid = cid
-        self.logger = logger
-        self.train = trainloader
-        self.val = valloader
-        self.model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels = 2)
-        # Prepare optimizer and schedule (linear warmup and decay)
-        self.optimizer = AdamW(self.model.parameters(), lr=os.environ.get("LR"), eps=os.environ.get("EPSILON"))
-        self.scheduler = get_linear_schedule_with_warmup(self.opti, num_warmup_steps=0, num_training_steps=total_steps)
-        # Move model to GPU if available
-        if not torch.cuda.is_available():
-            raise ValueError("CUDA is not available")
+class BERTLightningModel(pl.LightningModule):
+    def __init__(
+        self,
+        model_name: str = 'bert-base-uncased',
+        num_labels: int = 2,
+        metric: type[Accuracy] = Accuracy,
+        lr: float = 2e-5,
+        seed: Optional[int] = None
+    ):
+        """Initialize the BERT model."""
+        super().__init__()
+        # Set seed for reproducibility
+        if seed is not None:
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+
+        self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
+        self.lr = lr
+        # Set up metrics
+        self.metric = metric(task="binary")
+        self.loss_fn = nn.CrossEntropyLoss()
+
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        """Forward pass of the BERT model."""
+        return self.model(input_ids=input_ids, attention_mask=attention_mask)
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        """Configure the optimizer."""
+        return torch.optim.AdamW(self.parameters(), lr=self.lr)
+
+    def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Training step of the BERT model."""
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
         
-        self.device = torch.device("cuda")
-        self.logger.info(f"Device {self.device} is used.")
+        outputs = self(input_ids=input_ids, attention_mask=attention_mask)
+        loss = self.loss_fn(outputs.logits, labels)
+        preds = torch.argmax(outputs.logits, dim=1)
+        metric = self.metric(preds, labels)
 
-    def get_parameters(self, ) -> torch.List[ndarray]:
-        return 
-    def set_parameters(self,):
-        return
-    def fit(self,):
-        self.logger.info()
-        self.model.to(self.device)
-        epochs = os.environ.get("EPOCHS")
-        for epoch in range(epochs): 
-            for batch in self.train: 
-                self.logger.info(batch)
-                self.logger.info(type(batch))
-                pair_token_ids = pair_token_ids.to(self.device)
-            mask_ids = mask_ids.to(self.device)
-            seg_ids = seg_ids.to(self.device)
-            labels = y.to(self.device)
+        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_metric", metric, prog_bar=True)
 
-            loss, prediction = self.model(pair_token_ids,
-                                     token_type_ids=seg_ids,
-                                     attention_mask=mask_ids,
-                                     labels=labels).values()
+        return loss
 
-            self.loss.backward()
-            self.optimizer.step()
+    def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Validation step of the BERT model."""
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
 
-            #total_train_loss += loss.item()
-            #total_train_acc += acc.item()
-            #it += 1  
-    
-    def free_gpu_from_client_model(self): 
-        self.model.to(torch.device("cpu"))
-        del self.model
-        
+        outputs = self(input_ids=input_ids, attention_mask=attention_mask)
+        loss = self.loss_fn(outputs.logits, labels)
+        preds = torch.argmax(outputs.logits, dim=1)
+        metric = self.metric(preds, labels)
 
-    def evaluate():pass
+        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_metric", metric, prog_bar=True)
+
+        return loss
+
+    def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
+        """Test step of the BERT model."""
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+        labels = batch["labels"]
+
+        outputs = self(input_ids=input_ids, attention_mask=attention_mask)
+        loss = self.loss_fn(outputs.logits, labels)
+        preds = torch.argmax(outputs.logits, dim=1)
+        metric = self.metric(preds, labels)
+
+        self.log("test_loss", loss, prog_bar=True)
+        self.log("test_metric", metric, prog_bar=True)
+
+        return loss
