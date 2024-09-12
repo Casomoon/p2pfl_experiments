@@ -2,6 +2,7 @@ import torch
 import random
 import sys
 import pandas as pd
+import pytorch_lightning as pl 
 from copy import deepcopy
 from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from transformers import BertTokenizerFast
@@ -64,13 +65,13 @@ class NLIParser():
         return unmatched_loader
     
     
-    def get_iid_split(self, num_clients, data_dist_weights: list[float], batch_size = 1, shuffle = True) -> list[DataLoader]:
-        assert sum(data_dist_weights) == 1.0
-        assert len(data_dist_weights) == num_clients
-        
-        train_frame = deepcopy(self.files["train"]["frame"])
-        total_samples = len(train_frame)
-        client_sample_counts = [int(total_samples*weight) for weight in data_dist_weights]
+    #def get_iid_split(self, num_clients, data_dist_weights: list[float], batch_size = 1, shuffle = True) -> list[DataLoader]:
+    #    assert sum(data_dist_weights) == 1.0
+    #    assert len(data_dist_weights) == num_clients
+    #    
+    #    train_frame = deepcopy(self.files["train"]["frame"])
+    #    total_samples = len(train_frame)
+    #    client_sample_counts = [int(total_samples*weight) for weight in data_dist_weights]
 
 
     def get_non_iid_split(self, num_clients,  data_dist_weights : list[float], batch_size=1, shuffle=True) -> list[DataLoader]:
@@ -166,7 +167,47 @@ class NLIParser():
             self.logger.info(f"Total samples assigned to client {client_idx}: {len(dataset)}")
         return client_datasets, client_distributions
     
+class NLIDataModule(pl.LightningDataModule):
+    def __init__(self, parser: NLIParser, num_clients: int, data_dist_weights: list[float], batch_size: int, shuffle: bool = True):
+        super().__init__()
+        self.parser = parser
+        self.num_clients = num_clients
+        self.data_dist_weights = data_dist_weights
+        self.batch_size = batch_size
+        self.shuffle = shuffle
 
+    def setup(self, stage: str = None):
+        """
+        Called at the beginning of the fit, test, or predict process.
+        Loads the data splits into train, val, and test dataloaders.
+        """
+        # Perform the non-IID split and get the corresponding DataLoader objects
+        self.train_loaders, self.val_loaders = self.parser.get_non_iid_split(
+            self.num_clients, self.data_dist_weights, self.batch_size, self.shuffle
+        )
+        # Load the global test set
+        self.global_test_set = self.parser.get_base_test(self.batch_size, self.shuffle)
+
+    def train_dataloader(self):
+        """
+        Returns the training dataloaders for each client as a list.
+        """
+        return self.train_loaders
+
+    def val_dataloader(self):
+        """
+        Returns the validation dataloaders for each client as a list.
+        """
+        return self.val_loaders
+
+    def test_dataloader(self):
+        """
+        Returns the global test dataloader.
+        """
+        return DataLoader(self.global_test_set, batch_size=self.batch_size, shuffle=False)
+    
+
+    
 class NLIDataset(Dataset): 
     def __init__(self, cid: int, logger : Logger, df : pd.DataFrame, train : bool = False) -> None:
         self.cid = cid 

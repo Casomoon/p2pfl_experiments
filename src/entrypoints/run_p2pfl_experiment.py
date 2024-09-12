@@ -29,9 +29,9 @@ def ring(nodes: list[Node]):
 
 def main(): 
     comm = InMemoryCommunicationProtocol
-    model = BERTLightningModel
+    model = MLP
     data = MnistFederatedDM
-    nr_nodes = 10
+    nr_nodes = 5
     nodes_refs: list[Node] = []
     for i in range(nr_nodes): 
         new_node = Node(model(),
@@ -42,4 +42,4 @@ def main():
         nodes_refs.append(new_node)
     signal.signal(signal.SIGINT, lambda sig, frame: stop_nodes_handler(sig,frame,nodes_refs))
     print("test_nodes_started")
-    # ring(nodes=nodes_refs)
+    ring(nodes=nodes_refs)
