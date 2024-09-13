@@ -121,13 +121,13 @@ class NLIParser():
             train_indices, val_indices = random_split(client_dataset, [train_size, val_size])
             train_data_subset = train_indices.indices
             val_data_subset = val_indices.indices
-            logger.info(f"{train_indices}, {val_indices}")
+            logger.info(self.module_name, f"{train_indices}, {val_indices}")
             train_data = train_frame.iloc[train_data_subset]
             val_data = train_frame.iloc[val_data_subset]
             logger.info(self.module_name, len(train_data))
-            logger.info(len(val_data))
-            train_subset = NLIDataset(cid,self.logger, train_data, train=True)
-            val_subset = NLIDataset(cid, self.logger, val_data, train=True)
+            logger.info(self.module_name, len(val_data))
+            train_subset = NLIDataset(cid, train_data, train=True)
+            val_subset = NLIDataset(cid, val_data, train=True)
             train_loaders.append(DataLoader(train_subset, batch_size, shuffle = shuffle))
             val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = shuffle))
         return train_loaders, val_loaders
@@ -139,7 +139,7 @@ class NLIParser():
             genres_dict[(row["genre"])].append(idx)
         client_datasets = [[] for _ in range(num_clients)]
         client_distributions = [Counter() for _ in range(num_clients)]
-        self.logger.info("Starting data split...")
+        logger.info(self.module_name, "Starting data split...")
         genres = list(genres_dict.items())
         random.shuffle(genres)  # Shuffle genre/label pairs for random assignment
         client_current_counts = [0] * num_clients
@@ -150,13 +150,13 @@ class NLIParser():
             client_idx = min(range(num_clients), key = lambda i : 
                              (client_current_counts[i] + len(indices)> client_sample_counts[i],
                               client_current_counts[i])) 
-            self.logger.info(f"{client_idx} has been chosen for {genre} assignment.")
+            logger.info(self.module_name, f"{client_idx} has been chosen for {genre} assignment.")
             if client_current_counts[client_idx] + len(indices)<= client_sample_counts[client_idx]:
                 client_datasets[client_idx].extend(indices)
                 client_distributions[client_idx].update([genre] * len(indices))
                 client_current_counts[client_idx] += len(indices)
                 assigned = True
-                self.logger.info(f"Assigned all {len(indices)} samples of {genre} to client {client_idx}.")
+                logger.info(self.module_name, f"Assigned all {len(indices)} samples of {genre} to client {client_idx}.")
             if not assigned:
                 remaining_indices = indices 
                 while remaining_indices: 
@@ -173,7 +173,7 @@ class NLIParser():
                         remaining_indices = remaining_indices[space_left:]
                     else : break
         for client_idx, dataset in enumerate(client_datasets):
-            self.logger.info(f"Total samples assigned to client {client_idx}: {len(dataset)}")
+            logger.info(self.module_name, f"Total samples assigned to client {client_idx}: {len(dataset)}")
         return client_datasets, client_distributions
     
 class NLIDataModule(pl.LightningDataModule):
@@ -200,9 +200,13 @@ class NLIDataModule(pl.LightningDataModule):
         Loads the data splits into train, val, and test dataloaders.
         """
         # Perform the non-IID split and get the corresponding DataLoader objects
-        self.train_loaders, self.val_loaders, self.global_test_set = self.parser.get_non_iid_split(
+        self.train_loaders: list[DataLoader]
+        self.val_loaders: list[DataLoader]
+        self.global_test: DataLoader
+        split_dataset = self.parser.get_non_iid_split(
             self.num_clients, self.data_dist_weights, self.batch_size, self.shuffle
         )
+        self.train_loaders, self.val_loaders, self.global_test = split_dataset
     def train_dataloader(self):
         """
         Returns the training dataloaders for each client as a list.
@@ -219,14 +223,14 @@ class NLIDataModule(pl.LightningDataModule):
         """
         Returns the global test dataloader.
         """
-        return DataLoader(self.global_test_set, batch_size=self.batch_size, shuffle=False)
+        return self.global_test
     
 
     
 class NLIDataset(Dataset): 
     def __init__(self, cid: int, logger : Logger, df : pd.DataFrame, train : bool = False) -> None:
         self.cid = cid 
-        self.logger = logger 
+        self.module_name = f"NLIDataset {self.cid}"
         self.training = train
         # tokenizer
         self.tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
@@ -235,13 +239,13 @@ class NLIDataset(Dataset):
         self.data = deepcopy(df) 
         self.label_map = {"no_contradiction": 0, "contradiction": 1}
         # preprocess with tokenizer
-        self.logger.info(f"Preprocessing sentences for Client {self.cid} with length {len(self.data)}.")
+        logger.info(self.module_name, f"Preprocessing sentences for Client {self.cid} with length {len(self.data)}.")
         self.data["encoded"] = self.data.apply(
             lambda row : self.tokenizer(
                 row["sentence1"], row["sentence2"], truncation = True,
                 return_tensors = "pt", padding = "max_length"), axis = 1)
         if self.training : 
-            self.logger.info("Preprocessing labels for training loader")
+            logger.info(self.module_name, "Preprocessing labels for training loader")
             self.data["label"] = self.data["gold_label"].apply(
                 lambda label : self.label_map.get(label))
             
