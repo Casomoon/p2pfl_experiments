@@ -10,6 +10,9 @@ from logging import Logger
 from pathlib import Path
 from collections import defaultdict, Counter
 from p2pfl.management.logger import logger
+import gc 
+import time
+
 
 # class loads the dataset and creates the distributed data collections for each client
 class NLIParser(): 
@@ -107,7 +110,7 @@ class NLIParser():
         self.train_loaders = train_loaders
         self.val_loaders = val_loaders
         self.global_test_set = global_test_set
-        logger.info("Data split completed successfully. Assigning to instance variables.")
+        logger.info(self.module_name, "Data split completed successfully. Assigning to instance variables.")
         
         return train_loaders, val_loaders, global_test_set
     
@@ -121,13 +124,15 @@ class NLIParser():
             train_indices, val_indices = random_split(client_dataset, [train_size, val_size])
             train_data_subset = train_indices.indices
             val_data_subset = val_indices.indices
-            logger.info(self.module_name, f"{train_indices}, {val_indices}")
             train_data = train_frame.iloc[train_data_subset]
             val_data = train_frame.iloc[val_data_subset]
-            logger.info(self.module_name, len(train_data))
-            logger.info(self.module_name, len(val_data))
+            start_train = time.time()
             train_subset = NLIDataset(cid, train_data, train=True)
+            train_took = time.time() - start_train
+            logger.info(self.module_name, f"Train took {train_took} for batch of {len(train_data)}")
+            start_val = time.time()
             val_subset = NLIDataset(cid, val_data, train=True)
+            val_took = time.time() - start_val
             train_loaders.append(DataLoader(train_subset, batch_size, shuffle = shuffle))
             val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = shuffle))
         return train_loaders, val_loaders
@@ -222,7 +227,7 @@ class NLIDataModule(pl.LightningDataModule):
 
     
 class NLIDataset(Dataset): 
-    def __init__(self, cid: int, df : pd.DataFrame, train : bool = False) -> None:
+    def __init__(self, cid: int, df: pd.DataFrame, train: bool = False, batch_size: int = 1000) -> None:
         self.cid = cid 
         self.module_name = f"NLIDataset {self.cid}"
         self.training = train
@@ -230,19 +235,48 @@ class NLIDataset(Dataset):
         self.tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
         self.keys_encoding = ["input_ids", "token_type_ids", "attention_mask"]
         # label map directly translates to 0 -> no contradiction, 1 -> contradiction
-        self.data = deepcopy(df) 
+        self.data = df 
         self.label_map = {"no_contradiction": 0, "contradiction": 1}
-        # preprocess with tokenizer
+        
+        # preprocess with tokenizer in batches
         logger.info(self.module_name, f"Preprocessing sentences for Client {self.cid} with length {len(self.data)}.")
-        self.data["encoded"] = self.data.apply(
-            lambda row : self.tokenizer(
-                row["sentence1"], row["sentence2"], truncation = True,
-                return_tensors = "pt", padding = "max_length"), axis = 1)
-        if self.training : 
+        self.data["encoded"] = self.batch_tokenize(self.data, self.tokenizer, batch_size)
+
+        if self.training:
             logger.info(self.module_name, "Preprocessing labels for training loader")
             self.data["label"] = self.data["gold_label"].apply(
-                lambda label : self.label_map.get(label))
-            
+                lambda label: self.label_map.get(label)
+            )
+        gc.collect()  # Collect garbage after processing
+    
+    def batch_tokenize(self, df, tokenizer, batch_size=1000):
+        encoded_data: list = []
+        num_batches = len(df) // batch_size + (1 if len(df) % batch_size != 0 else 0)
+        
+        for i in range(num_batches):
+            # Slice the dataframe into batches
+            batch = df.iloc[i * batch_size: (i + 1) * batch_size]
+            logger.info(self.module_name, f"Tokenizing batch {i + 1}/{num_batches}...")
+            # Perform batch tokenization
+            tokenized_batch = tokenizer.batch_encode_plus(
+                list(zip(batch["sentence1"], batch["sentence2"])),
+                truncation=True,
+                padding="max_length",
+                return_tensors="pt"
+            )
+            # Match the tokenized batch to a list structure that has the same length as the dataframe
+            for index in range(len(batch)): 
+                encoded_data.append({
+                    "input_ids": tokenized_batch["input_ids"][index],
+                    "token_type_ids": tokenized_batch["token_type_ids"][index],
+                    "attention_mask": tokenized_batch["attention_mask"][index],
+                })
+
+            # Clear memory if necessary
+            gc.collect()
+        logger.info(self.module_name, f"Batch tokenization completed for {len(df)} samples.")
+        return encoded_data
+
     def __len__(self) -> int: 
         return len(self.data)
     
