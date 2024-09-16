@@ -45,14 +45,16 @@ def main():
     assert sum(data_dist_weights) == 1.0
     nodes_refs: list[Node] = []
     nli_data = NLIParser(mnli_data_path, nr_nodes, data_dist_weights, batch_size).get_non_iid_split()
-    exit(1)
-    
-    
     
     for i in range(nr_nodes): 
+        data_module = NLIDataModule(
+            parser = nli_data,
+            cid = i, 
+            niid = True
+        )
         new_node = Node(model(),
-                        data, 
-                        f"mlp_test_{i}", 
+                        data_module, 
+                        f"BERT_{i}", 
                         protocol = comm)
         new_node.start()
         nodes_refs.append(new_node)

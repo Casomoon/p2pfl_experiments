@@ -180,44 +180,38 @@ class NLIDataModule(pl.LightningDataModule):
     def __init__(
                 self, 
                 parser: NLIParser,
-                num_clients: int, 
-                data_dist_weights: list[float], 
-                batch_size: int, 
-                shuffle: bool = True,
+                cid: int, 
                 niid: bool = True
                 ):
         super().__init__()
         self.parser = parser
-        self.num_clients = num_clients
-        self.data_dist_weights = data_dist_weights
-        self.batch_size = batch_size
-        self.shuffle = shuffle
+        self.cid = cid
         self.niid = niid
-
+        self.train_loaders: list[DataLoader]
+        self.val_loaders: list[DataLoader]
+        self.global_test: DataLoader
+        split_dataset = self.parser.get_non_iid_split()
+        self.train_loaders, self.val_loaders, self.global_test = split_dataset
+    
     def setup(self, stage: str = None):
         """
         Called at the beginning of the fit, test, or predict process.
         Loads the data splits into train, val, and test dataloaders.
         """
         # Perform the non-IID split and get the corresponding DataLoader objects
-        self.train_loaders: list[DataLoader]
-        self.val_loaders: list[DataLoader]
-        self.global_test: DataLoader
-        split_dataset = self.parser.get_non_iid_split(
-            self.num_clients, self.data_dist_weights, self.batch_size, self.shuffle
-        )
-        self.train_loaders, self.val_loaders, self.global_test = split_dataset
+        
+    
     def train_dataloader(self):
         """
         Returns the training dataloaders for each client as a list.
         """
-        return self.train_loaders
+        return self.train_loaders[self.cid]
 
     def val_dataloader(self):
         """
         Returns the validation dataloaders for each client as a list.
         """
-        return self.val_loaders
+        return self.val_loaders[self.cid]
 
     def test_dataloader(self):
         """
@@ -228,7 +222,7 @@ class NLIDataModule(pl.LightningDataModule):
 
     
 class NLIDataset(Dataset): 
-    def __init__(self, cid: int, logger : Logger, df : pd.DataFrame, train : bool = False) -> None:
+    def __init__(self, cid: int, df : pd.DataFrame, train : bool = False) -> None:
         self.cid = cid 
         self.module_name = f"NLIDataset {self.cid}"
         self.training = train
