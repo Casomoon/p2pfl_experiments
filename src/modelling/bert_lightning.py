@@ -4,13 +4,17 @@ import pytorch_lightning as pl
 from torchmetrics import Accuracy
 from transformers import BertForSequenceClassification
 from typing import Optional, Tuple
+from p2pfl.management.logger import logger
 
 class BERTLightningModel(pl.LightningModule):
     def __init__(
         self,
+        id: int, 
         model_name: str = 'bert-base-uncased',
         num_labels: int = 2,
         metric: type[Accuracy] = Accuracy,
+        weight_decay: float = 0.01,
+        warmup_steps: int = 100,
         lr: float = 2e-5,
         seed: Optional[int] = None
     ):
@@ -20,7 +24,9 @@ class BERTLightningModel(pl.LightningModule):
         if seed is not None:
             torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
-
+        self.weight_decay = weight_decay
+        self.warmup_steps = warmup_steps
+        self.module_name = "BERT"
         self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
         self.lr = lr
         # Set up metrics
@@ -33,13 +39,28 @@ class BERTLightningModel(pl.LightningModule):
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         """Configure the optimizer."""
-        return torch.optim.AdamW(self.parameters(), lr=self.lr)
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+        {'params': [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)],
+         'weight_decay': 0.01},
+        {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)],
+         'weight_decay': 0.0}
+    ]
+        optimizer = torch.optim.AdamW(
+            optimizer_grouped_parameters,
+            lr=self.lr,
+            weight_decay=self.weight_decay
+        )
+    
+        # Learning rate scheduler (linear warmup and decay)
+        
+        return optimizer
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Training step of the BERT model."""
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
-        labels = batch["labels"]
+        labels = batch["label"]
         
         outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
@@ -55,7 +76,7 @@ class BERTLightningModel(pl.LightningModule):
         """Validation step of the BERT model."""
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
-        labels = batch["labels"]
+        labels = batch["label"]
 
         outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
@@ -69,9 +90,10 @@ class BERTLightningModel(pl.LightningModule):
 
     def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Test step of the BERT model."""
+        
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
-        labels = batch["labels"]
+        labels = batch["label"]
 
         outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)

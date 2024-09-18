@@ -6,7 +6,6 @@ import pytorch_lightning as pl
 from copy import deepcopy
 from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from transformers import BertTokenizerFast
-from logging import Logger 
 from pathlib import Path
 from collections import defaultdict, Counter
 from p2pfl.management.logger import logger
@@ -22,6 +21,7 @@ class NLIParser():
                 num_clients: int,  
                 data_dist_weights: list[float],
                 batch_size:int =1, 
+                validation_split = 0.2, 
                 shuffle: bool = True):
         self.module_name = "NLIParser"
         if not data_loc.exists() : 
@@ -135,8 +135,8 @@ class NLIParser():
             val_subset = NLIDataset(cid, val_data, train=True)
             val_took = time.time() - start_val
             logger.info(self.module_name, f"Val took {val_took} for batch of {len(val_data)}")
-            train_loaders.append(DataLoader(train_subset, batch_size, shuffle = shuffle))
-            val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = shuffle))
+            train_loaders.append(DataLoader(train_subset, batch_size=batch_size, shuffle = shuffle))
+            val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = False))
         return train_loaders, val_loaders
 
 
@@ -184,7 +184,7 @@ class NLIParser():
         return client_datasets, client_distributions
     
 class NLIDataset(Dataset): 
-    def __init__(self, cid: int, df: pd.DataFrame, train: bool = False, batch_size: int = 1000) -> None:
+    def __init__(self, cid: int, df: pd.DataFrame, train: bool = False, batch_tokenize: int = 1000) -> None:
         self.cid = cid 
         self.module_name = f"NLIDataset {self.cid}"
         self.training = train
@@ -197,7 +197,7 @@ class NLIDataset(Dataset):
         
         # preprocess with tokenizer in batches
         logger.info(self.module_name, f"Preprocessing sentences for Client {self.cid} with length {len(self.data)}.")
-        self.data["encoded"] = self.batch_tokenize(self.data, self.tokenizer, batch_size)
+        self.data["encoded"] = self.batch_tokenize(self.data, self.tokenizer, batch_tokenize)
 
         if self.training:
             logger.info(self.module_name, "Preprocessing labels for training loader")
@@ -241,7 +241,9 @@ class NLIDataset(Dataset):
         row = self.data.iloc[index]
         encoding = row["encoded"]
         input = {k : v.squeeze(0) for k,v in encoding.items()}
-        if not self.training : return input
+        if not self.training : 
+            return input
+        
         cd_label : int = row["label"]
         input["label"] = torch.tensor(cd_label).long()
         return input
