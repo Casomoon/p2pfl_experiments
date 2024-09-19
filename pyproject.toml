@@ -9,8 +9,9 @@ packages = [
 ]
 
 [tool.poetry.scripts]
-start_p2p = "src.entrypoints.run_p2pfl_experiment:main"
-start_single = "src.entrypoints.run_single_bert:main"
+run_bert_p2p = "src.entrypoints.run_bert_p2p_experiment:main"
+run_bert_single = "src.entrypoints.run_bert_single:main"
+run_mlp = "src.entrypoints.run_mlp_p2p_test:main"
 
 [tool.poetry.dependencies]
 python = "3.9.20"
