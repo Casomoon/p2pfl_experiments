@@ -84,8 +84,8 @@ class NLIParser():
         # Only do the split generation once, even if the method is called multiple times
         if  hasattr(self, "train_loaders") and \
             hasattr(self, "val_loaders") and \
-            hasattr(self, "global_test_set"):
-            return self.train_loaders, self.val_loaders, self.global_test_set
+            hasattr(self, "global_loader"):
+            return self.train_loaders, self.val_loaders, self.global_loader
         
         # setup and combination of the matched and mismatched for global valdiation dataset 
         train_frame = deepcopy(self.files["train"]["frame"])
@@ -108,6 +108,7 @@ class NLIParser():
                                                           batch_size = self.batch_size, 
                                                           train_frame=train_frame, 
                                                           shuffle = True)
+        self.global_loader = DataLoader(global_test_set, batch_size=self.batch_size, shuffle=False, num_workers=2)
         self.train_loaders = train_loaders
         self.val_loaders = val_loaders
         self.global_test_set = global_test_set
@@ -135,8 +136,8 @@ class NLIParser():
             val_subset = NLIDataset(cid, val_data, train=True)
             val_took = time.time() - start_val
             logger.info(self.module_name, f"Val took {val_took} for batch of {len(val_data)}")
-            train_loaders.append(DataLoader(train_subset, batch_size=batch_size, shuffle = shuffle))
-            val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = False))
+            train_loaders.append(DataLoader(train_subset, batch_size=batch_size, shuffle = shuffle, num_workers=2))
+            val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = False, num_workers=2))
         return train_loaders, val_loaders
 
 
