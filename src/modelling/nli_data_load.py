@@ -1,17 +1,18 @@
-import torch 
 import random
-import sys
 import pandas as pd
-import pytorch_lightning as pl 
-from copy import deepcopy
-from torch.utils.data import Dataset, DataLoader, random_split, Subset
 from transformers import BertTokenizerFast
+import pytorch_lightning 
+from copy import deepcopy
+from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from collections import defaultdict, Counter
 from p2pfl.management.logger import logger
-import gc 
+import math 
 import time
+import gc
 
+tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
+label_map = {"no_contradiction": 0, "contradiction": 1}
 
 # class loads the dataset and creates the distributed data collections for each client
 class NLIParser(): 
@@ -27,7 +28,7 @@ class NLIParser():
         if not data_loc.exists() : 
             logger.error(self.module_name, f"{data_loc.absolute} not found.")
             raise FileNotFoundError(f"{data_loc.absolute} not found.") 
-        assert sum(data_dist_weights) == 1.0
+        assert math.isclose(sum(data_dist_weights), 1.0)
         assert len(data_dist_weights) == num_clients
         self.num_clients = num_clients
         self.data_dist_weights = data_dist_weights
@@ -48,6 +49,7 @@ class NLIParser():
             logger.info(self.module_name, f"Loading set {set_name}")
             filepath = self.data_loc.joinpath(set_dict.get("filename"))
             dataset = pd.read_json(filepath, lines=True)   
+            logger.info(self.module_name, f"Set {set_name} has a length of {len(dataset)}")
             dataset = dataset[self.columns_to_keep]
             self.files[set_name]["frame"] = dataset
             logger.info(self.module_name, f"{set_name} loaded, shape is: {dataset.shape}")
@@ -66,16 +68,6 @@ class NLIParser():
             ) 
             self.files[dataset]["frame"] = frame_edited
 
-    
-    #def get_iid_split(self, num_clients, data_dist_weights: list[float], batch_size = 1, shuffle = True) -> list[DataLoader]:
-    #    assert sum(data_dist_weights) == 1.0
-    #    assert len(data_dist_weights) == num_clients
-    #    
-    #    train_frame = deepcopy(self.files["train"]["frame"])
-    #    total_samples = len(train_frame)
-    #    client_sample_counts = [int(total_samples*weight) for weight in data_dist_weights]
-
-
     def get_non_iid_split(self, ) -> tuple[list[DataLoader], list[DataLoader], DataLoader]:
         """
         Generates train/test dataloaders for training derived from the large train dataset. Also generates a global test set
@@ -93,7 +85,7 @@ class NLIParser():
         client_sample_counts = [int(total_samples*weight) for weight in self.data_dist_weights]
         test_matched_frame = deepcopy(self.files["test_matched"]["frame"])
         test_mismatched_frame = deepcopy(self.files["test_mismatched"]["frame"])
-        global_test_set = pd.concat([test_matched_frame, test_mismatched_frame]).reset_index(drop=True)
+        global_test_df = pd.concat([test_matched_frame, test_mismatched_frame]).reset_index(drop=True)
         client_datasets, client_distributions = self.niid_split_data(train_frame, self.num_clients, client_sample_counts)
         # Log information about the data distributions of the clients.
         for i,client in enumerate(client_distributions):
@@ -101,46 +93,18 @@ class NLIParser():
        # Log the total number of samples assigned to each client
         for client_idx, dataset in enumerate(client_datasets):
             logger.info(self.module_name, f"Total samples assigned to client {client_idx}: {len(dataset)}")
-            logger.info(self.module_name, f"{type(dataset)} {type(dataset[0])}")
        # Create train and test split for each client, they are returned as list of tuples of dataloaders then
-        train_loaders, val_loaders = self.train_test_split(client_datasets, 
-                                                          validation_split = 0.2, 
-                                                          batch_size = self.batch_size, 
-                                                          train_frame=train_frame, 
-                                                          shuffle = True)
-        self.global_loader = DataLoader(global_test_set, batch_size=self.batch_size, shuffle=False, num_workers=2)
-        self.train_loaders = train_loaders
-        self.val_loaders = val_loaders
-        self.global_test_set = global_test_set
-        logger.info(self.module_name, "Data split completed successfully. Assigning to instance variables.")
+        train_dfs, val_dfs = self.train_test_split( client_datasets, 
+                                                    validation_split = 0.2, 
+                                                    train_frame=train_frame
+                                                    )
+       
+        assert len(train_dfs) == len(val_dfs)
+        trains_encoded, vals_encoded, global_test_encoded = self.encode(train_dfs, val_dfs, global_test_df)
         
-        return train_loaders, val_loaders, global_test_set
+        
+       
     
-    def train_test_split(self, client_datasets : list[list[int]], validation_split : float, batch_size : int, train_frame : pd.DataFrame, shuffle = True)-> tuple[list[DataLoader], list[DataLoader]]: 
-        train_loaders: list[DataLoader] = []
-        val_loaders: list[DataLoader]= []
-        for cid, client_dataset in enumerate(client_datasets): 
-            # do the split for each created client dataset
-            val_size = int(len(client_dataset) * validation_split)
-            train_size = len(client_dataset) - val_size
-            train_indices, val_indices = random_split(client_dataset, [train_size, val_size])
-            train_data_subset = train_indices.indices
-            val_data_subset = val_indices.indices
-            train_data = train_frame.iloc[train_data_subset]
-            val_data = train_frame.iloc[val_data_subset]
-            start_train = time.time()
-            train_subset = NLIDataset(cid, train_data, train=True)
-            train_took = time.time() - start_train
-            logger.info(self.module_name, f"Train took {train_took} for batch of {len(train_data)}")
-            start_val = time.time()
-            val_subset = NLIDataset(cid, val_data, train=True)
-            val_took = time.time() - start_val
-            logger.info(self.module_name, f"Val took {val_took} for batch of {len(val_data)}")
-            train_loaders.append(DataLoader(train_subset, batch_size=batch_size, shuffle = shuffle, num_workers=2))
-            val_loaders.append(DataLoader(val_subset, batch_size=batch_size, shuffle = False, num_workers=2))
-        return train_loaders, val_loaders
-
-
     def niid_split_data(self, frame, num_clients, client_sample_counts : list[int]):
         genres_dict = defaultdict(list)
         for idx, row in frame.iterrows():
@@ -184,30 +148,57 @@ class NLIParser():
             logger.info(self.module_name, f"Total samples assigned to client {client_idx}: {len(dataset)}")
         return client_datasets, client_distributions
     
-class NLIDataset(Dataset): 
-    def __init__(self, cid: int, df: pd.DataFrame, train: bool = False, batch_tokenize: int = 1000) -> None:
-        self.cid = cid 
-        self.module_name = f"NLIDataset {self.cid}"
-        self.training = train
-        # tokenizer
-        self.tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-        self.keys_encoding = ["input_ids", "token_type_ids", "attention_mask"]
-        # label map directly translates to 0 -> no contradiction, 1 -> contradiction
-        self.data = df.copy()
-        self.label_map = {"no_contradiction": 0, "contradiction": 1}
-        
-        # preprocess with tokenizer in batches
-        logger.info(self.module_name, f"Preprocessing sentences for Client {self.cid} with length {len(self.data)}.")
-        self.data["encoded"] = self.batch_tokenize(self.data, self.tokenizer, batch_tokenize)
-
-        if self.training:
-            logger.info(self.module_name, "Preprocessing labels for training loader")
-            self.data.loc[:, "label"] = self.data["gold_label"].apply(
-                lambda label: self.label_map.get(label)
-            )
-        gc.collect()  # Collect garbage after processing
+    def train_test_split(self, client_datasets : list[list[int]], validation_split : float, train_frame : pd.DataFrame)-> tuple[list[pd.DataFrame], list[pd.DataFrame]]: 
+        train_dfs: list[pd.DataFrame] = []
+        val_dfs: list[pd.DataFrame]= []
+        for client_dataset in client_datasets: 
+            # do the split for each created client dataset
+            val_size = int(len(client_dataset) * validation_split)
+            train_size = len(client_dataset) - val_size
+            train_indices, val_indices = random_split(client_dataset, [train_size, val_size])
+            train_data_subset = train_indices.indices
+            val_data_subset = val_indices.indices
+            train_data = train_frame.iloc[train_data_subset]
+            val_data = train_frame.iloc[val_data_subset]
+            logger.info(self.module_name,f"Types : {type(train_data)}, {type(val_data)}")
+            train_dfs.append(train_data)
+            val_dfs.append(val_data)
+        return train_dfs, val_dfs
     
-    def batch_tokenize(self, df, tokenizer, batch_size=1000):
+    
+    def encode(self, train_data_dfs: list[pd.DataFrame], val_data_dfs: list[pd.DataFrame], global_test_data: pd.DataFrame)-> tuple[list[list[dict]], list[list[dict]], list[dict]]: 
+        assert len(train_data_dfs) == len(val_data_dfs)
+        label_map = {"no_contradiction": 0, "contradiction": 1}
+        batch_tokenize = 1000
+        def process_data_frames(data_frames: list[pd.DataFrame]) -> list[list[dict]]:
+            data_dicts: list[list[dict]] = []
+            for i, df in enumerate(data_frames):
+                df = df.copy()
+                logger.info(self.module_name, f"Encoding sentence pairs for client {i}")
+                df.loc[:, "encoded"] = self.batch_tokenize(df, batch_tokenize)
+                df.loc[:, "label"] = df["gold_label"].apply(lambda label: label_map.get(label))
+                encoded = df.to_dict(orient="records")
+                data_dicts.append(encoded)
+                del df
+                gc.collect()
+            return data_dicts
+        logger.info(self.module_name, "Processing train frames.")
+        train_dicts = process_data_frames(train_data_dfs)
+        logger.info(self.module_name, "Processing val frames.")
+        val_dicts = process_data_frames(val_data_dfs)
+         # Process global test data
+        logger.info(self.module_name, "Encoding global test data")
+        global_test_data.loc[:,"encoded"] = self.batch_tokenize(global_test_data, batch_tokenize)
+        global_test_data.loc[:, "label"] = global_test_data["gold_label"].apply(
+            lambda label: label_map.get(label)
+        )
+        test_dicts = global_test_data.to_dict(orient="records")
+        del global_test_data
+        gc.collect()
+            
+        return train_dicts, val_dicts, test_dicts
+    
+    def batch_tokenize(self, df, batch_size=1000):
         encoded_data: list = []
         num_batches = len(df) // batch_size + (1 if len(df) % batch_size != 0 else 0)
         
@@ -229,66 +220,7 @@ class NLIDataset(Dataset):
                     "token_type_ids": tokenized_batch["token_type_ids"][index],
                     "attention_mask": tokenized_batch["attention_mask"][index],
                 })
-
             # Clear memory if necessary
             gc.collect()
         logger.info(self.module_name, f"Batch tokenization completed for {len(df)} samples.")
         return encoded_data
-
-    def __len__(self) -> int: 
-        return len(self.data)
-    
-    def __getitem__(self, index) -> dict:
-        row = self.data.iloc[index]
-        encoding = row["encoded"]
-        input = {k : v.squeeze(0) for k,v in encoding.items()}
-        if not self.training : 
-            return input
-        
-        cd_label : int = row["label"]
-        input["label"] = torch.tensor(cd_label).long()
-        return input
-    
-class NLIDataModule(pl.LightningDataModule):
-    def __init__(
-                self, 
-                parser: NLIParser,
-                cid: int, 
-                niid: bool = True
-                ):
-        super().__init__()
-        self.parser = parser
-        self.cid = cid
-        self.niid = niid
-        self.train_loaders: list[DataLoader]
-        self.val_loaders: list[DataLoader]
-        self.global_test: DataLoader
-        split_dataset = self.parser.get_non_iid_split()
-        self.train_loaders, self.val_loaders, self.global_test = split_dataset
-    
-    def setup(self, stage: str = None):
-        """
-        Called at the beginning of the fit, test, or predict process.
-        """
-        # No need to do anything here, the data has already been prepared in the NLIParser module
-        pass
-    
-    def train_dataloader(self):
-        """
-        Returns the training dataloaders for each client as a list.
-        """
-        return self.train_loaders[self.cid]
-
-    def val_dataloader(self):
-        """
-        Returns the validation dataloaders for each client as a list.
-        """
-        return self.val_loaders[self.cid]
-
-    def test_dataloader(self):
-        """
-        Returns the global test dataloader.
-        """
-        return self.global_test
-    
-    
