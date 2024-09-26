@@ -1,3 +1,6 @@
+
+import os
+import torch
 import sys, time
 from p2pfl.node import Node
 from p2pfl.communication.memory.memory_communication_protocol import InMemoryCommunicationProtocol
@@ -9,9 +12,10 @@ from p2pfl.utils import (
 # singleton logger
 from p2pfl.management.logger import logger
 from ..modelling.bert_lightning import BERTLightningModel
-from ..modelling.nli_data_load import NLIDataModule, NLIParser
+from ..modelling.nli_data_load import NLIParser
 from pathlib import Path
 import signal 
+import sys
 
 root = Path(__file__).resolve().parents[2]
 mnli_data_path = root/"data"/"multinli_1.0"
@@ -52,49 +56,43 @@ def wait_n_neigh(nodes: list[Node], n_neis: int, wait: int = 5, only_direct: boo
 def set_test_settings() -> None:
     """Set settings for testing."""
     Settings.GRPC_TIMEOUT = 0.5
-    Settings.HEARTBEAT_PERIOD = 0.5
-    Settings.HEARTBEAT_TIMEOUT = 2
-    Settings.GOSSIP_PERIOD = 0
+    Settings.HEARTBEAT_PERIOD = 5
+    Settings.HEARTBEAT_TIMEOUT = 200
+    Settings.GOSSIP_PERIOD = 5
     Settings.TTL = 10
-    Settings.GOSSIP_MESSAGES_PER_PERIOD = 100
-    Settings.AMOUNT_LAST_MESSAGES_SAVED = 100
-    Settings.GOSSIP_MODELS_PERIOD = 1
-    Settings.GOSSIP_MODELS_PER_ROUND = 4
-    Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 4
-    Settings.TRAIN_SET_SIZE = 4
+    Settings.GOSSIP_MESSAGES_PER_PERIOD = 10
+    Settings.AMOUNT_LAST_MESSAGES_SAVED = 50
+    Settings.GOSSIP_MODELS_PERIOD = 10
+    Settings.GOSSIP_MODELS_PER_ROUND = 2
+    Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 8
+    Settings.TRAIN_SET_SIZE = 500
     Settings.VOTE_TIMEOUT = 60
     Settings.AGGREGATION_TIMEOUT = 60
     Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.2 * Settings.HEARTBEAT_TIMEOUT
     Settings.LOG_LEVEL = "DEBUG"
 
 def main(): 
+    torch.set_float32_matmul_precision("medium")
     set_test_settings()
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
     comm = InMemoryCommunicationProtocol
-    model = BERTLightningModel
+    bert_model_init = BERTLightningModel
     #nr_nodes = 2
     #data_dist_weights = [0.5, 0.5]
-    nr_nodes = 3
-    data_dist_weights = [0.33, 0.33, 0.34]
-    batch_size = 16
-    assert len(data_dist_weights) == nr_nodes
-    assert sum(data_dist_weights) == 1.0
+    nr_nodes = 5
+    data_dist_weights = [0.15, 0.3, 0.15, 0.3, 0.1]
+    batch_size = 8
     nodes_refs: list[Node] = []
     # create the data distribution
     nli_data_parser = NLIParser(mnli_data_path, nr_nodes, data_dist_weights, batch_size)
     # prepare the data split initially 
-    nli_data_parser.get_non_iid_split()
+    data_modules = nli_data_parser.get_non_iid_split()
      
     for i in range(nr_nodes): 
         # wrap it into Lightning data modules
-        data_module = NLIDataModule(
-            parser = nli_data_parser,
-            cid = i, 
-            niid = True
-        )
         # create the nodes
-        new_node = Node(model(),
-                        data_module, 
+        new_node = Node(bert_model_init(cid=0, model_name='bert-base-uncased', num_labels=2, lr=2e-5),
+                        data_modules[i], 
                         f"BERT_{i}", 
                         protocol = comm)
         new_node.start()
