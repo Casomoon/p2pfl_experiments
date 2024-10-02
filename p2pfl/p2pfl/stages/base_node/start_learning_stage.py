@@ -81,6 +81,7 @@ class StartLearningStage(Stage):
 
             # Wait to guarantee new connection heartbeats convergence
             wait_time = Settings.WAIT_HEARTBEATS_CONVERGENCE - (time.time() - begin)
+            logger.info(state.addr, f"Waiting for {wait_time} seconds")
             if wait_time > 0:
                 time.sleep(wait_time)
 

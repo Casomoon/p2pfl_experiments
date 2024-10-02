@@ -98,9 +98,10 @@ class BERTLightningModel(pl.LightningModule):
         if not torch.all((unique_labels >= 0) & (unique_labels <= 1)):
             logger.info(self.module_name, f"Invalid labels in {unique_labels}.")
             raise ValueError(f"Invalid labels found in batch {batch_idx}: {unique_labels}")
-        if len(unique_labels) < 2:
-           print(f"Batch {batch_idx} has only one class: {unique_labels}")
-           return  # Skip metric computation or handle accordingly
+        #if len(unique_labels) < 2:
+        #   
+        #   #print(f"Batch {batch_idx} has only one class: {unique_labels}")
+        #   return  # Skip metric computation or handle accordingly
 
         outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)

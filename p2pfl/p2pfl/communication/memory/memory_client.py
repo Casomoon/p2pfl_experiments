@@ -27,6 +27,7 @@ from p2pfl.communication.memory.memory_neighbors import InMemoryNeighbors
 from p2pfl.communication.memory.server_singleton import ServerSingleton
 from p2pfl.management.logger import logger
 from p2pfl.settings import Settings
+import traceback
 
 
 class InMemoryClient(Client):
@@ -43,7 +44,7 @@ class InMemoryClient(Client):
         """Initialize the in-memory client."""
         self.__self_addr = self_addr
         self.__neighbors = neighbors
-
+        self.module_name = f"InMemoryClient_{self.__self_addr}"
     def build_message(
         self, cmd: str, args: Optional[List[str]] = None, round: Optional[int] = None
     ) -> Dict[str, Union[str, int, List[str]]]:
@@ -149,6 +150,7 @@ class InMemoryClient(Client):
                 self.__self_addr,
                 f"Cannot send message {msg['cmd']!r} to {nei}. Error: {str(e)}",
             )
+            logger.info(self.module_name, traceback.format_exc())
             self.__neighbors.remove(nei)
 
     def broadcast(
