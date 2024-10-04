@@ -2,21 +2,15 @@ import random
 import pandas as pd
 import gc
 import math 
-import sys
-from transformers import BertTokenizerFast
 from copy import deepcopy
 from torch.utils.data import DataLoader, random_split
 from pathlib import Path
 from collections import defaultdict, Counter
 from p2pfl.management.logger import logger
-
+from .bert_zoo import get_tokenizer_by_string
 from .nli_pl_wrapper import NLIDataset, NLIDataModule
 
-
-
-tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
 label_map = {"no_contradiction": 0, "contradiction": 1}
-
 # class loads the dataset and creates the distributed data collections for each client
 class NLIParser(): 
     def __init__(
@@ -24,7 +18,8 @@ class NLIParser():
                 data_loc: Path, 
                 num_clients: int,  
                 data_dist_weights: list[float],
-                batch_size:int =1, 
+                model_name: str, 
+                batch_size: int =1, 
                 validation_split = 0.2, 
                 shuffle: bool = True):
         self.module_name = "NLIParser"
@@ -45,9 +40,12 @@ class NLIParser():
             "test_mismatched"   : {"filename" : "multinli_1.0_dev_mismatched.jsonl"},
         }   
         self.columns_to_keep = ["pairID", "genre", "gold_label", "sentence1", "sentence2"]
+        self.tokenizer = get_tokenizer_by_string(model_name)
+        self.model_name = model_name
         self.__load_datasets()
         self.__nli_to_cd()
-    
+        
+
     def __load_datasets(self): 
         for set_name, set_dict in self.files.items(): 
             logger.info(self.module_name, f"Loading set {set_name}")
@@ -71,6 +69,7 @@ class NLIParser():
                 else x
             ) 
             self.files[dataset]["frame"] = frame_edited
+
 
     def get_non_iid_split(self, ) -> list[NLIDataModule]:
         """
@@ -214,25 +213,28 @@ class NLIParser():
     def batch_tokenize(self, df, batch_size=1000):
         encoded_data: list = []
         num_batches = len(df) // batch_size + (1 if len(df) % batch_size != 0 else 0)
-        
+        # distilbert doesnt use token type ids, bert and mobilebert on the other hand do 
+        use_token_type_ids = True
+        if self.model_name == "distilbert" : use_token_type_ids = False
         for i in range(num_batches):
             # Slice the dataframe into batches
             batch = df.iloc[i * batch_size: (i + 1) * batch_size]
             logger.info(self.module_name, f"Tokenizing batch {i + 1}/{num_batches}...")
             # Perform batch tokenization
-            tokenized_batch = tokenizer.batch_encode_plus(
+            tokenized_batch = self.tokenizer.batch_encode_plus(
                 list(zip(batch["sentence1"], batch["sentence2"])),
                 truncation=True,
                 padding="max_length",
                 return_tensors="pt"
             )
             # Match the tokenized batch to a list structure that has the same length as the dataframe
-            for index in range(len(batch)): 
-                encoded_data.append({
-                    "input_ids": tokenized_batch["input_ids"][index],
-                    "token_type_ids": tokenized_batch["token_type_ids"][index],
-                    "attention_mask": tokenized_batch["attention_mask"][index],
-                })
+            for idx in range(len(batch)): 
+                # basic input for distilbert
+                input_data = {
+                    "input_ids": tokenized_batch["input_ids"][idx],
+                    "attention_mask": tokenized_batch["attention_mask"][idx]}
+                if use_token_type_ids: input_data["token_type_ids"] = tokenized_batch["token_type_ids"][idx]
+                encoded_data.append(input_data)
             # Clear memory if necessary
             gc.collect()
         logger.info(self.module_name, f"Batch tokenization completed for {len(df)} samples.")

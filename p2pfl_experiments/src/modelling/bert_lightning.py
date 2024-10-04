@@ -1,16 +1,19 @@
 import torch
+import gc 
 import torch.nn as nn
 import pytorch_lightning as pl
-from torchmetrics.classification import BinaryAccuracy
-from transformers import BertForSequenceClassification
+from torchmetrics.classification import BinaryAccuracy, BinaryF1Score
 from typing import Optional, Tuple
 from p2pfl.management.logger import logger
 
+from .bert_zoo import get_bert_by_string
+
 class BERTLightningModel(pl.LightningModule):
+    models = {}
     def __init__(
         self,
         cid: int, 
-        model_name: str = 'bert-base-uncased',
+        model_type: str= "bert", 
         num_labels: int = 2,
         weight_decay: float = 0.01,
         warmup_steps: int = 100,
@@ -27,14 +30,18 @@ class BERTLightningModel(pl.LightningModule):
         self.weight_decay = weight_decay
         self.warmup_steps = warmup_steps
         self.module_name = f"BERT_Lightning_{self.cid}"
-        self.model = BertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
+        self.model = get_bert_by_string(model_type, num_labels)
         self.lr = lr
         # Set up metrics
         self.metric = BinaryAccuracy()
         self.loss_fn = nn.CrossEntropyLoss()
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
-        """Forward pass of the BERT model."""
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, token_type_ids: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """Forward pass of the BERT models for sentecne classifcation tasks like NLI or CD ."""
+        # BERT and MobileBERT
+        if token_type_ids is not None: 
+            return self.model(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+        # DistilBERT
         return self.model(input_ids=input_ids, attention_mask=attention_mask)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
@@ -57,23 +64,28 @@ class BERTLightningModel(pl.LightningModule):
         return optimizer
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Training step of the BERT model."""
+        """Training step of the BERT models."""
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
+        # assure token type ids dont get passed/ get passed as None based on which model is used
+        token_type_ids = batch.get("token_type_ids", None)
         labels = batch["label"]
-        
-        outputs = self(input_ids=input_ids, attention_mask=attention_mask)
+        # condidtional forward pass 
+        if token_type_ids is not None:
+            outputs = self(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids) 
+        else : 
+            outputs = self(input_ids=input_ids, attention_mask=attention_mask) 
         loss = self.loss_fn(outputs.logits, labels)
         preds = torch.argmax(outputs.logits, dim=1)
         metric = self.metric(preds, labels)
-
+        f1 = BinaryF1Score()
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_metric", metric, prog_bar=True)
 
         return loss
 
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Validation step of the BERT model."""
+        """Validation step of the BERT models."""
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
         labels = batch["label"]
@@ -88,34 +100,34 @@ class BERTLightningModel(pl.LightningModule):
 
 
     def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
-        """Test step of the BERT model."""
+        """Test step of the BERT models."""
         
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
+        token_type_ids = batch.get()
         labels = batch["label"]
         unique_labels = torch.unique(labels)
          # Check for invalid labels
         if not torch.all((unique_labels >= 0) & (unique_labels <= 1)):
             logger.info(self.module_name, f"Invalid labels in {unique_labels}.")
             raise ValueError(f"Invalid labels found in batch {batch_idx}: {unique_labels}")
-        #if len(unique_labels) < 2:
-        #   
-        #   #print(f"Batch {batch_idx} has only one class: {unique_labels}")
-        #   return  # Skip metric computation or handle accordingly
-
         outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
         preds = torch.argmax(outputs.logits, dim=1)
         metric = self.metric(preds, labels)
         
-        # Logging for debugging
-        #logger.info(self.module_name,f"Batch {batch_idx} - Unique labels: {unique_labels}")
-        #logger.info(self.module_name,f"Labels min/max: {labels.min()}/{labels.max()}")
-        #logger.info(self.module_name,f"Labels dtype: {labels.dtype}")
-        #logger.info(self.module_name,f"Labels device: {labels.device}")
-        #logger.info(self.module_name,f"Preds device: {preds.device}")
-        #logger.info(self.module_name,f"Preds dtype: {preds.dtype}")
-        #logger.info(self.module_name,f"Preds shape: {preds.shape}")
-        #logger.info(self.module_name,f"Labels shape: {labels.shape}")
+        
         self.log("test_loss", loss, prog_bar=True)
         self.log("test_metric", metric, prog_bar=True)
+    def on_train_end(self) -> None:
+        logger.info(self.module_name, "Training complete. Clearing up VRAM")
+        gc.collect()
+        torch.cuda.empty_cache()
+    def on_validation_end(self) -> None:
+        logger.info(self.module_name, "Validation complete. Clearing up VRAM")
+        gc.collect()
+        torch.cuda.empty_cache()    
+    def on_test_end(self) -> None:
+        logger.info(self.module_name, "Test complete. Clearing up VRAM")
+        gc.collect()
+        torch.cuda.empty_cache()  
