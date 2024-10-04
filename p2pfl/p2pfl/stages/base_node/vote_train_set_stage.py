@@ -61,7 +61,7 @@ class VoteTrainSetStage(Stage):
             )
             logger.info(
                 state.addr,
-                f"🚂 Train set of {len(state.train_set)} nodes: {state.train_set}",
+                f"🚂 Train set of {len(state.train_set)} nodes: {state.train_set} in round {state.round}",
             )
 
             # Next stage
@@ -122,13 +122,13 @@ class VoteTrainSetStage(Stage):
             timeout = count > Settings.VOTE_TIMEOUT
 
             # Clear non candidate votes
-            state.train_set_votes_lock.acquire()
-            nc_votes = {
-                k: v
-                for k, v in state.train_set_votes.items()
-                if k in list(communication_protocol.get_neighbors(only_direct=False)) or k == state.addr
-            }
-            state.train_set_votes_lock.release()
+            with state.train_set_votes_lock:
+                nc_votes = {
+                    k: v
+                    for k, v in state.train_set_votes.items()
+                    if k in list(communication_protocol.get_neighbors(only_direct=False)) or k == state.addr
+                }
+            
 
             # Determine if all votes are received
             needed_votes = set(list(communication_protocol.get_neighbors(only_direct=False)) + [state.addr])

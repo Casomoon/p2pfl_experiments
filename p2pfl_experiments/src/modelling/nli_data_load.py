@@ -215,7 +215,8 @@ class NLIParser():
         num_batches = len(df) // batch_size + (1 if len(df) % batch_size != 0 else 0)
         # distilbert doesnt use token type ids, bert and mobilebert on the other hand do 
         use_token_type_ids = True
-        if self.model_name == "distilbert" : use_token_type_ids = False
+        if self.model_name == "distilbert" : 
+            use_token_type_ids = False
         for i in range(num_batches):
             # Slice the dataframe into batches
             batch = df.iloc[i * batch_size: (i + 1) * batch_size]
@@ -225,6 +226,7 @@ class NLIParser():
                 list(zip(batch["sentence1"], batch["sentence2"])),
                 truncation=True,
                 padding="max_length",
+                max_length = 512,
                 return_tensors="pt"
             )
             # Match the tokenized batch to a list structure that has the same length as the dataframe

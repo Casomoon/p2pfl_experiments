@@ -19,6 +19,7 @@ import random
 root = Path(__file__).resolve().parents[2]
 mnli_data_path = root/"data"/"multinli_1.0"
 
+MODEL_NAME = "bert"
 STRUCTURE = "multi_star"
 NR_NODES = 20
 DATA_DIST_WEIGHTS = [0.04842105, 0.04842105, 0.03842105, 0.03842105, 0.04842105,
@@ -154,14 +155,14 @@ def main():
    
     nodes_refs: list[Node] = []
     # create the data distribution
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, BATCH_SIZE)
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
      
     for i in range(NR_NODES): 
         # wrap it into Lightning data modules
         # create the nodes
-        new_node = Node(bert_model_init(cid=0, model_name='bert-base-uncased', num_labels=2, lr=2e-5),
+        new_node = Node(bert_model_init(cid=0, model_name=MODEL_NAME, num_labels=2, lr=2e-5),
                         data_modules[i], 
                         f"BERT_{i}", 
                         protocol = comm)

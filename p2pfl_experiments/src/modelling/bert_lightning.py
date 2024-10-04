@@ -13,7 +13,7 @@ class BERTLightningModel(pl.LightningModule):
     def __init__(
         self,
         cid: int, 
-        model_type: str= "bert", 
+        model_name: str= "bert", 
         num_labels: int = 2,
         weight_decay: float = 0.01,
         warmup_steps: int = 100,
@@ -30,7 +30,7 @@ class BERTLightningModel(pl.LightningModule):
         self.weight_decay = weight_decay
         self.warmup_steps = warmup_steps
         self.module_name = f"BERT_Lightning_{self.cid}"
-        self.model = get_bert_by_string(model_type, num_labels)
+        self.model = get_bert_by_string(model_name, num_labels)
         self.lr = lr
         # Set up metrics
         self.metric = BinaryAccuracy()

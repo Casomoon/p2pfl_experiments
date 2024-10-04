@@ -212,7 +212,7 @@ class Logger:
             f"{Settings.LOG_DIR}/p2pfl.log", maxBytes=1000000, backupCount=3
         )  # TODO: ADD DIFFERENT LOG FILES FOR DIFFERENT NODES / EXPERIMENTS
         file_formatter = logging.Formatter(
-            "[ %(asctime)s | %(node)s | %(levelname)s ]: %(message)s",
+            "[ %(asctime)s | %(thread)d | %(node)s | %(levelname)s ]: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         file_handler.setFormatter(file_formatter)
@@ -221,7 +221,7 @@ class Logger:
         # STDOUT - Handler
         stream_handler = logging.StreamHandler()
         cmd_formatter = ColoredFormatter(
-            f"{GRAY}[ {YELLOW}%(asctime)s {GRAY}| {CYAN}%(node)s {GRAY}| %(levelname)s{GRAY} ]:{RESET} %(message)s",
+            f"{GRAY}[ {YELLOW}%(asctime)s {GRAY}|{BLUE}Thread-%(thread)d {GRAY}|{CYAN}%(node)s {GRAY}| %(levelname)s{GRAY} ]:{RESET} %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         stream_handler.setFormatter(cmd_formatter)
