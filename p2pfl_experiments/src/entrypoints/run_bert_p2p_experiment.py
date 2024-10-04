@@ -4,9 +4,9 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import torch
 import sys, time
 from p2pfl.node import Node
-from p2pfl.communication.memory.memory_communication_protocol import InMemoryCommunicationProtocol
+from p2pfl.communication.protocols.memory.memory_communication_protocol import InMemoryCommunicationProtocol
 from p2pfl.settings import Settings
-from p2pfl.utils import wait_4_results
+from p2pfl.utils import wait_to_finish
 # singleton logger
 from p2pfl.management.logger import logger
 from ..modelling.bert_lightning import BERTLightningModel
@@ -174,4 +174,5 @@ def main():
     multi_star(nodes_refs, 3)
     wait_n_neigh(nodes_refs,NR_NODES - 1, only_direct=False)
     nodes_refs[0].set_start_learning(rounds = ROUNDS, epochs = EPOCHS_PER_ROUND)
-    wait_4_results(nodes_refs)
+    one_day_in_sec = 86400 
+    wait_to_finish(nodes_refs, one_day_in_sec)
