@@ -78,7 +78,7 @@ class PyTorchExportStrategy(DataExportStrategy):
     def export(
         data: Dataset,
         transforms: Optional[Callable] = None,
-        batch_size: int = 1,
+        batch_size: int = 2,
         num_workers: int = 0,
         **kwargs,
     ) -> DataLoader:

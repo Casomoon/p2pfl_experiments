@@ -5,6 +5,11 @@ import torch
 import sys, time
 from p2pfl.node import Node
 from p2pfl.communication.protocols.memory.memory_communication_protocol import InMemoryCommunicationProtocol
+from p2pfl.learning.pytorch.lightning_learner import LightningLearner
+from p2pfl.learning.p2pfl_model import P2PFLModel
+from p2pfl.learning.pytorch.lightning_model import LightningModel
+from p2pfl.learning.aggregators.fedavg import FedAvg
+
 from p2pfl.settings import Settings
 from p2pfl.utils import wait_to_finish
 # singleton logger
@@ -107,7 +112,6 @@ def wait_n_neigh(nodes: list[Node], n_neis: int, wait: int = 60, only_direct: bo
         if acum > wait:
             raise AssertionError()
         
-def set_struct_dict(): pass
 def set_test_settings() -> None:
     """Set settings for testing."""
     Settings.GRPC_TIMEOUT = 0.5
@@ -123,7 +127,7 @@ def set_test_settings() -> None:
     Settings.TRAIN_SET_SIZE = 4
     Settings.VOTE_TIMEOUT = 4000
     Settings.AGGREGATION_TIMEOUT = 10000
-    Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.05 * Settings.HEARTBEAT_TIMEOUT
+    Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.01 * Settings.HEARTBEAT_TIMEOUT
     Settings.LOG_LEVEL = "DEBUG"
 
 
@@ -143,29 +147,40 @@ def log_run_settings()-> None:
     logger.info("main", f"Settings.WAIT_HEARTBEATS_CONVERGENCE : {Settings.WAIT_HEARTBEATS_CONVERGENCE}")
     logger.info("main", f"ROUNDS : {ROUNDS}")
     logger.info("main", f"EPOCHS_PER_ROUND : {EPOCHS_PER_ROUND}")
+
+
+
+
+
+
+
+
 def main(): 
     logger.__name__
     torch.set_float32_matmul_precision("medium")
     set_test_settings()
     log_run_settings()
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
-    comm = InMemoryCommunicationProtocol
-    bert_model_init = BERTLightningModel
+    
+    model_init_blm = BERTLightningModel
+    module_adapter : P2PFLModel = LightningModel
     #nr_nodes = 2
    
     nodes_refs: list[Node] = []
     # create the data distribution
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE)
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.9)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
      
     for i in range(NR_NODES): 
         # wrap it into Lightning data modules
         # create the nodes
-        new_node = Node(bert_model_init(cid=0, model_name=MODEL_NAME, num_labels=2, lr=2e-5),
-                        data_modules[i], 
-                        f"BERT_{i}", 
-                        protocol = comm)
+        new_node = Node(model = module_adapter(model_init_blm(cid=0, model_name= MODEL_NAME, num_labels=2, lr=2e-5)),
+                        data = data_modules[i], 
+                        address = f"BERT_{i}", 
+                        protocol = InMemoryCommunicationProtocol,
+                        learner = LightningLearner,
+                        aggregator = FedAvg)
         new_node.start()
         nodes_refs.append(new_node)
     # graceful stopping

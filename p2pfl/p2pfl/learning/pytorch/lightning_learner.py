@@ -123,7 +123,7 @@ class LightningLearner(NodeLearner):
         # Get Model
         pt_model = self.model.get_model()
         if not isinstance(pt_model, L.LightningModule):
-            raise ValueError("The model must be a PyTorch Lightning model")
+            raise ValueError(f"The model must be a PyTorch Lightning model, the model has type {type(pt_model)}")
         # Get Data
         pt_data = self.data.export(PyTorchExportStrategy, train=train)
         if not isinstance(pt_data, DataLoader):
