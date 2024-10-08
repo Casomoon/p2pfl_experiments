@@ -191,7 +191,6 @@ class NLIParser():
             val_data_subset = val_indices.indices
             train_data = train_frame.iloc[train_data_subset]
             val_data = train_frame.iloc[val_data_subset]
-            logger.info(self.module_name,f"Types : {type(train_data)}, {type(val_data)}")
             train_dfs.append(train_data)
             val_dfs.append(val_data)
         return train_dfs, val_dfs

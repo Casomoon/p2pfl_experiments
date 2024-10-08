@@ -26,6 +26,7 @@ from p2pfl.learning.exceptions import DecodingParamsError, ModelNotMatchingError
 from p2pfl.learning.learner import NodeLearner
 from p2pfl.management.logger import logger
 from p2pfl.node_state import NodeState
+import traceback 
 
 
 class FullModelCommand(Command):
@@ -63,18 +64,14 @@ class FullModelCommand(Command):
                     f"Model reception in a late round ({round} != {self.state.round}).",
                 )
                 return
-
-            # Check moment
-            if not self.state.wait_aggregated_model_lock.locked():
-                logger.debug(self.state.addr, "😲 Aggregated model not expected.")
-                return
-
+            
             try:
                 logger.info(self.state.addr, "📦 Aggregated model received.")
                 # Decode and set model
                 self.learner.set_model(weights)
                 # Release lock
-                self.state.wait_aggregated_model_lock.release()
+                logger.info(self.state.addr, "Releasing 'wait_aggregated_model event'")
+                self.state.wait_aggregated_model_event.set()
 
             # Warning: these stops can cause a denegation of service attack
             except DecodingParamsError:
@@ -86,6 +83,7 @@ class FullModelCommand(Command):
                 self.stop()
 
             except Exception as e:
+                logger.error(self.state.addr, f"{traceback.format_exc()}")
                 logger.error(self.state.addr, f"❌ Unknown error adding model: {e}")
                 self.stop()
         else:
