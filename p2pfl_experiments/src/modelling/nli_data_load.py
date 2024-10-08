@@ -125,7 +125,12 @@ class NLIParser():
         # transform to p2pfl datasets  
         #nli_data_modules = self.to_data_modules(trains_encoded, vals_encoded, global_test_encoded, self.batch_size)
         #self.nli_data_modules = nli_data_modules
-        #return self.nli_data_modules
+        ##return self.nli_data_modules
+        for i in range(len(trains_encoded)): 
+            self.sanity_check(trains_encoded[i], "train")
+            self.sanity_check(vals_encoded[i], "val")
+        self.sanity_check(global_test_encoded, "test")
+        
         p2pfl_modules = self.to_p2p_modules(trains_encoded, vals_encoded, global_test_encoded)
         self.p2pfl_modules = p2pfl_modules
         return self.p2pfl_modules
@@ -196,9 +201,6 @@ class NLIParser():
         assert len(train_data_dfs) == len(val_data_dfs)
         label_map = {"no_contradiction": 0, "contradiction": 1}
         batch_tokenize = 1000
-        use_token_type_ids = True
-        if self.model_name == "distilbert" : 
-            use_token_type_ids = False
         def process_data_frames(data_frames: list[pd.DataFrame]) -> list[list[dict]]:
             data_dicts: list[list[dict]] = []
             for i, df in enumerate(data_frames):
@@ -206,9 +208,9 @@ class NLIParser():
                 logger.info(self.module_name, f"Encoding sentence pairs for client {i}")
                 df.loc[:, "encoded"] = self.batch_tokenize(df, batch_tokenize)
                 df.loc[:, "label"] = df["gold_label"].apply(lambda label: label_map.get(label))
-                df.loc[:, ["encoded", "label"]]
-                encoded_df = pd.json_normalize(df["encoded"])
-                df_final = encoded_df.join(df["label"])
+                df = df.loc[:, ["encoded", "label"]]
+                encoded_df = df["encoded"].apply(pd.Series)
+                df_final = pd.concat([encoded_df, df["label"]], axis=1)
                 encoded = df_final.to_dict(orient="records")
                 data_dicts.append(encoded)
                 del df
@@ -222,9 +224,9 @@ class NLIParser():
         logger.info(self.module_name, "Encoding global test data")
         global_test_data.loc[:,"encoded"] = self.batch_tokenize(global_test_data, batch_tokenize)
         global_test_data.loc[:, "label"] = global_test_data["gold_label"].apply(lambda label: label_map.get(label))
-        global_test_data.loc[:, ["encoded", "label"]]
-        encoded_test = pd.json_normalize(global_test_data["encoded"])
-        test_final = encoded_test.join(global_test_data["label"])
+        global_test_data = global_test_data.loc[:, ["encoded", "label"]]
+        encoded_test = global_test_data["encoded"].apply(pd.Series)
+        test_final = pd.concat([encoded_test, global_test_data["label"]],axis = 1)
         test_dicts = test_final.to_dict(orient="records")
         del global_test_data
         gc.collect()
@@ -294,3 +296,11 @@ class NLIParser():
             )
             p2p_modules.append(client_p2p_dataset)
         return p2p_modules
+    def sanity_check(self, dataset: list[dict], set_name): 
+        # in order to prevent the very big negative number in test data loader do sanity check 
+        labels_unique = set()
+        for i, element in enumerate(dataset):
+            label = element.get("label")
+            assert type(label) == int, f"Label at index {i}: in set {set_name} is not an integer but {label} has type {type(label)}" 
+            labels_unique.add(label)
+        assert labels_unique == {0,1}, f"Unexpected labels found: {labels_unique}."

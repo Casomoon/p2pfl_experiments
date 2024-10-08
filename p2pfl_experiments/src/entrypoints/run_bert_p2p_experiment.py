@@ -126,7 +126,7 @@ def set_test_settings() -> None:
     Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 50
     Settings.TRAIN_SET_SIZE = 4
     Settings.VOTE_TIMEOUT = 4000
-    Settings.AGGREGATION_TIMEOUT = 10000
+    Settings.AGGREGATION_TIMEOUT = 30000
     Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.01 * Settings.HEARTBEAT_TIMEOUT
     Settings.LOG_LEVEL = "DEBUG"
 
@@ -156,7 +156,6 @@ def log_run_settings()-> None:
 
 
 def main(): 
-    logger.__name__
     torch.set_float32_matmul_precision("medium")
     set_test_settings()
     log_run_settings()
@@ -168,7 +167,7 @@ def main():
    
     nodes_refs: list[Node] = []
     # create the data distribution
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.9)
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.0)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
      

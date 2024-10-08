@@ -133,6 +133,7 @@ class LightningLearner(NodeLearner):
     def fit(self) -> None:
         """Fit the model."""
         try:
+            logger.info(self.__self_addr, "Starting fit.")
             if self.epochs > 0:
                 self.__trainer = Trainer(
                     max_epochs=self.epochs,
@@ -144,6 +145,7 @@ class LightningLearner(NodeLearner):
                 pt_model, pt_data = self.__get_pt_model_data()
                 self.__trainer.fit(pt_model, pt_data)
                 self.__trainer = None
+            logger.info(self.__self_addr, "Finished learning.")
             # Set model contribution
             self.model.set_contribution([self.__self_addr], self.data.get_num_samples())
 
@@ -169,14 +171,16 @@ class LightningLearner(NodeLearner):
 
         """
         try:
+            logger.info(self.__self_addr, "Start evaluation")
             if self.epochs > 0:
-                self.__trainer = Trainer()
+                self.__trainer = Trainer(logger=self.logger)
                 pt_model, pt_data = self.__get_pt_model_data(train=False)
                 results = self.__trainer.test(pt_model, pt_data, verbose=True)[0]
                 self.__trainer = None
                 # Log metrics
                 for k, v in results.items():
                     logger.log_metric(self.__self_addr, k, v)
+                logger.info(self.__self_addr, "Finished evaluation" )
                 return dict(results)
 
             else:

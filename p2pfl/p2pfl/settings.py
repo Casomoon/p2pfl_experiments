@@ -131,7 +131,7 @@ class Settings:
     """
     Timeout (seconds) for a node to wait for a vote.
     """
-    AGGREGATION_TIMEOUT: int = 300
+    AGGREGATION_TIMEOUT: int = 3000
     """
     Timeout (seconds) for a node to wait for other models. Timeout starts when the first model is added.
     """
@@ -147,3 +147,22 @@ class Settings:
     """
     Period (seconds) to send resource monitor information.
     """
+
+    ############
+    # CUSTOM
+    ####
+    GRPC_TIMEOUT = 0.5
+    HEARTBEAT_PERIOD = 30
+    HEARTBEAT_TIMEOUT = 4500
+    GOSSIP_PERIOD = 5
+    TTL = 40
+    GOSSIP_MESSAGES_PER_PERIOD = 9999999999
+    AMOUNT_LAST_MESSAGES_SAVED = 10000
+    GOSSIP_MODELS_PERIOD = 5
+    GOSSIP_MODELS_PER_ROUND = 50
+    GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 50
+    TRAIN_SET_SIZE = 4
+    VOTE_TIMEOUT = 4000
+    AGGREGATION_TIMEOUT = 30000
+    WAIT_HEARTBEATS_CONVERGENCE = 0.1 * HEARTBEAT_TIMEOUT
+    LOG_LEVEL = "DEBUG"
