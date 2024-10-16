@@ -64,7 +64,9 @@ class FullModelCommand(Command):
                     f"Model reception in a late round ({round} != {self.state.round}).",
                 )
                 return
-            
+            if self.state.wait_aggregated_model_event.is_set():
+                logger.debug(self.state.addr, "😲 Aggregated model not expected.")
+                return
             try:
                 logger.info(self.state.addr, "📦 Aggregated model received.")
                 # Decode and set model
