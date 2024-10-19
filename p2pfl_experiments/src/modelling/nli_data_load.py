@@ -289,7 +289,7 @@ class NLIParser():
                     "test": global_test_dataset
                 }),
                 train_split_name="train",
-                #validation_split_name="valid", 
+                valid_split_name="validation", 
                 test_split_name="test",
                 transforms=None
             )

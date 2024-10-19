@@ -119,15 +119,18 @@ class LightningLearner(NodeLearner):
         """
         self.epochs = epochs
 
-    def __get_pt_model_data(self, train: bool = True) -> Tuple[L.LightningModule, DataLoader]:
+    def __get_pt_model_data(self, splits: list[str]= ["train", "valid"]) -> Tuple[L.LightningModule, DataLoader]:
         # Get Model
         pt_model = self.model.get_model()
         if not isinstance(pt_model, L.LightningModule):
             raise ValueError(f"The model must be a PyTorch Lightning model, the model has type {type(pt_model)}")
         # Get Data
-        pt_data = self.data.export(PyTorchExportStrategy, train=train)
-        if not isinstance(pt_data, DataLoader):
-            raise ValueError("The data must be a PyTorch DataLoader")
+        pt_data: list[DataLoader] = []
+        for split in splits: 
+            pt_loader = self.data.export(PyTorchExportStrategy, split)
+            if not isinstance(pt_loader, DataLoader): 
+                raise ValueError("The data must be a PyTorch DataLoader")
+            pt_data.append(pt_loader)
         return pt_model, pt_data
 
     def fit(self) -> None:
@@ -142,8 +145,8 @@ class LightningLearner(NodeLearner):
                     enable_checkpointing=False,
                     enable_model_summary=False,
                 )
-                pt_model, pt_data = self.__get_pt_model_data()
-                self.__trainer.fit(pt_model, pt_data)
+                pt_model, pt_data = self.__get_pt_model_data(["train", "valid"])
+                self.__trainer.fit(pt_model, pt_data[0], pt_data[1])
                 self.__trainer = None
             logger.info(self.__self_addr, "Finished learning.")
             # Set model contribution
@@ -174,7 +177,7 @@ class LightningLearner(NodeLearner):
             logger.info(self.__self_addr, "Start evaluation")
             if self.epochs > 0:
                 self.__trainer = Trainer(logger=self.logger)
-                pt_model, pt_data = self.__get_pt_model_data(train=False)
+                pt_model, pt_data = self.__get_pt_model_data(["test"])
                 results = self.__trainer.test(pt_model, pt_data, verbose=True)[0]
                 self.__trainer = None
                 # Log metrics

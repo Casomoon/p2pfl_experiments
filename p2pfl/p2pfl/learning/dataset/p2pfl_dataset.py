@@ -101,7 +101,10 @@ class P2PFLDataset:
         data: Union[Dataset, DatasetDict],
         train_split_name: str = "train",
         test_split_name: str = "test",
+        use_valid: bool = True,
+        valid_split_name: Optional[str] = None, 
         transforms: Optional[Callable] = None,
+        split_train_valid: bool = False
     ):
         """
         Initialize the P2PFLDataset object.
@@ -110,15 +113,20 @@ class P2PFLDataset:
             data: The dataset to use.
             train_split_name: The name of the training split.
             test_split_name: The name of the test split.
+            valid_split_name: The name of the validation split.
             transforms: The transforms to apply to the data.
 
         """
         self._data = data
-        self._train_split_name = train_split_name
-        self._test_split_name = test_split_name
         self._transforms = transforms
+        self.data_splits = {
+            "train": train_split_name,
+            "test": test_split_name
+        }
+        if use_valid: 
+            self.data_splits.update({"valid": valid_split_name})
 
-    def get(self, idx, train: bool = True) -> Dict[str, Any]:
+    def get(self, idx, split: str = None) -> Dict[str, Any]:
         """
         Get the item at the given index.
 
@@ -130,11 +138,13 @@ class P2PFLDataset:
             The item at the given index.
 
         """
+        assert isinstance(split, str)
+        assert split in self.data_splits.keys()
         if isinstance(self._data, Dataset):
             data = self._data[idx]
         elif isinstance(self._data, DatasetDict):
-            split = self._train_split_name if train else self._test_split_name
-            data = self._data[split][idx]
+            split_name = self.data_splits.get(split)
+            data = self._data[split_name][idx]
         return data
 
     def set_transforms(self, transforms: Callable) -> None:
@@ -163,7 +173,7 @@ class P2PFLDataset:
         else:
             raise ValueError("Unsupported data type.")
 
-    def get_num_samples(self, train: bool = True) -> int:
+    def get_num_samples(self, split: str = "train") -> int:
         """
         Get the number of samples in the dataset.
 
@@ -174,11 +184,13 @@ class P2PFLDataset:
             The number of samples in the dataset.
 
         """
+        assert isinstance(split, str)
+        assert split in self.data_splits.keys()
         if isinstance(self._data, Dataset):
             return len(self._data)
         elif isinstance(self._data, DatasetDict):
-            split = self._train_split_name if train else self._test_split_name
-            return len(self._data[split])
+            split_name = self.data_splits.get(split)
+            return len(self._data[split_name])
         else:
             raise TypeError("Unsupported data type.")
 
@@ -201,8 +213,8 @@ class P2PFLDataset:
         if isinstance(self._data, Dataset):
             raise ValueError("Cannot generate partitions for single datasets. ")
         train_partition_idxs, test_partition_idxs = strategy.generate_partitions(
-            self._data[self._train_split_name],
-            self._data[self._test_split_name],
+            self._data[self.data_splits.get("train")],
+            self._data[self.data_splits.get("test")],
             num_partitions,
             seed=seed,
             label_tag=label_tag,
@@ -211,8 +223,8 @@ class P2PFLDataset:
             P2PFLDataset(
                 DatasetDict(
                     {
-                        self._train_split_name: self._data[self._train_split_name].select(train_partition_idxs[i]),
-                        self._test_split_name: self._data[self._test_split_name].select(test_partition_idxs[i]),
+                        self.data_splits.get("train"): self._data[self.data_splits.get("train")].select(train_partition_idxs[i]),
+                        self.data_splits.get("test"): self._data[self.data_splits.get("test")].select(test_partition_idxs[i]),
                     }
                 )
             )
@@ -222,7 +234,7 @@ class P2PFLDataset:
     def export(
         self,
         strategy: Type[DataExportStrategy],
-        train: bool = True,
+        split: str = None,
         **kwargs,
     ) -> Any:
         """
@@ -242,8 +254,11 @@ class P2PFLDataset:
             raise ValueError("Cannot export single datasets. Need to generate train/test splits first.")
 
         # Export
-        split = self._train_split_name if train else self._test_split_name
-        return strategy.export(self._data[split], transforms=self._transforms, **kwargs)
+        assert isinstance(split, str)
+        assert split in self.data_splits.keys()
+
+        split_name = self.data_splits.get(split)
+        return strategy.export(self._data[split_name], transforms=self._transforms, **kwargs)
 
     @classmethod
     def from_csv(cls, data_files: DataFilesType, **kwargs) -> "P2PFLDataset":
