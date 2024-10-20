@@ -32,7 +32,10 @@ from p2pfl.learning.learner import NodeLearner
 from p2pfl.learning.p2pfl_model import P2PFLModel
 from p2pfl.learning.pytorch.lightning_dataset import PyTorchExportStrategy
 from p2pfl.learning.pytorch.lightning_logger import FederatedLogger
+from pytorch_lightning.loggers import CSVLogger
 from p2pfl.management.logger import logger
+from p2pfl_experiments.src.modelling.bert_lightning import BERTLightningModel
+from pathlib import Path
 
 torch.set_num_threads(1)
 
@@ -63,6 +66,9 @@ class LightningLearner(NodeLearner):
 
         # Start logging
         self.logger = FederatedLogger(self_addr)
+        assert isinstance(self.model.model, BERTLightningModel)
+        assert isinstance(self.model.model.node_dir, Path)
+        self.csv_logger = CSVLogger(save_dir=self.model.model.node_dir, name=self.__self_addr)
         # To avoid GPU/TPU printings
         logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
 
@@ -141,12 +147,16 @@ class LightningLearner(NodeLearner):
                 self.__trainer = Trainer(
                     max_epochs=self.epochs,
                     accelerator="auto",
-                    logger=self.logger,
+                    logger=[self.logger, self.csv_logger],
                     enable_checkpointing=False,
                     enable_model_summary=False,
                 )
                 pt_model, pt_data = self.__get_pt_model_data(["train", "valid"])
-                self.__trainer.fit(pt_model, pt_data[0], pt_data[1])
+                self.__trainer.fit(
+                    model=pt_model, 
+                    train_dataloaders=pt_data[0],
+                    val_dataloaders=pt_data[1],
+                    )
                 self.__trainer = None
             logger.info(self.__self_addr, "Finished learning.")
             # Set model contribution
@@ -176,9 +186,13 @@ class LightningLearner(NodeLearner):
         try:
             logger.info(self.__self_addr, "Start evaluation")
             if self.epochs > 0:
-                self.__trainer = Trainer(logger=self.logger)
+                self.__trainer = Trainer(logger=[self.logger, self.csv_logger])
                 pt_model, pt_data = self.__get_pt_model_data(["test"])
-                results = self.__trainer.test(pt_model, pt_data, verbose=True)[0]
+                results = self.__trainer.test(
+                    model=pt_model,
+                    dataloaders=pt_data, 
+                    verbose=True
+                    )[0]
                 self.__trainer = None
                 # Log metrics
                 for k, v in results.items():

@@ -2,14 +2,13 @@ import torch
 import gc 
 import torch.nn as nn
 import lightning as L 
-from torchmetrics.classification import BinaryAccuracy, BinaryF1Score
+from torchmetrics.classification import BinaryAccuracy, BinaryF1Score, BinaryRecall, BinaryPrecision
 from typing import Optional, Tuple
 from p2pfl.management.logger import logger
-
+from pathlib import Path
 from .bert_zoo import get_bert_by_string
 
 class BERTLightningModel(L.LightningModule):
-    models = {}
     def __init__(
         self,
         cid: int, 
@@ -18,9 +17,11 @@ class BERTLightningModel(L.LightningModule):
         weight_decay: float = 0.01,
         warmup_steps: int = 100,
         lr: float = 2e-5,
-        seed: Optional[int] = None
+        seed: Optional[int] = None,
+        base_dir: Path = None
     ):
         """Initialize the BERT model."""
+        
         super().__init__()
         # Set seed for reproducibility
         if seed is not None:
@@ -36,8 +37,25 @@ class BERTLightningModel(L.LightningModule):
         self.use_token_type_ids = use_token_type_ids
         self.lr = lr
         # Set up metrics
-        self.metric = BinaryAccuracy()
+        self.metrics = {
+            "acc": BinaryAccuracy(),
+            "f1": BinaryF1Score(),
+            "recall": BinaryRecall(),
+            "precision": BinaryPrecision()
+            }
         self.loss_fn = nn.CrossEntropyLoss()
+        assert isinstance(base_dir, Path)
+        assert base_dir.exists()
+        self.setup_model_results_dir(base_dir)
+        self.round = 0
+
+    def setup_model_results_dir(self, base_dir: Path):
+        node_dir = base_dir/f"node_{self.cid}"
+        assert not node_dir.exists()
+        node_dir.mkdir()
+        self.node_dir = node_dir
+
+        
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor, token_type_ids: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Forward pass of the BERT models for sentecne classifcation tasks like NLI or CD ."""
@@ -79,11 +97,10 @@ class BERTLightningModel(L.LightningModule):
         else: outputs = self(input_ids=input_ids, attention_mask=attention_mask) 
         loss = self.loss_fn(outputs.logits, labels)
         preds = torch.argmax(outputs.logits, dim=1)
-        metric = self.metric(preds, labels)
-        f1 = BinaryF1Score()
         self.log("train_loss", loss, prog_bar=True)
-        self.log("train_metric", metric, prog_bar=True)
-
+        for metric in self.metrics.keys(): 
+            metric_fn = self.metrics[metric]
+            self.log(f"train_{metric}", metric_fn(preds, labels, prog_bar=True))
         return loss
 
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -96,11 +113,13 @@ class BERTLightningModel(L.LightningModule):
             outputs = self(input_ids=input_ids, attention_mask=attention_mask, token_type_ids = token_type_ids)
         else: outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
-        preds = torch.argmax(outputs.logits, dim=1)
-        metric = self.metric(preds, labels)
-
         self.log("val_loss", loss, prog_bar=True)
-        self.log("val_metric", metric, prog_bar=True)
+        preds = torch.argmax(outputs.logits, dim=1)
+        for metric in self.metrics.keys():
+            metric_fn = self.metrics[metric]
+            self.log(f"val_{metric}", metric_fn(preds, labels, prog_bar = True))
+        return loss
+
 
 
     def test_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -119,20 +138,26 @@ class BERTLightningModel(L.LightningModule):
         else: outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
         preds = torch.argmax(outputs.logits, dim=1)
-        metric = self.metric(preds, labels)
-        
-        
         self.log("test_loss", loss, prog_bar=True)
+        for metric in self.metrics: 
+            metric_fn = self.metrics[metric]
+            self.log(f"test_{metric}", metric_fn(preds, labels, prog_bar= True))
         self.log("test_metric", metric, prog_bar=True)
+        return {"test_loss": loss, "preds": preds, "targets": labels}
+    
     def on_train_end(self) -> None:
         logger.info(self.module_name, "Training complete. Clearing up VRAM")
         gc.collect()
         torch.cuda.empty_cache()
     def on_validation_end(self) -> None:
         logger.info(self.module_name, "Validation complete. Clearing up VRAM")
-        gc.collect()
-        torch.cuda.empty_cache()    
+        self.clear_vram()
     def on_test_end(self) -> None:
         logger.info(self.module_name, "Test complete. Clearing up VRAM")
+        self.clear_vram()
+
+        self.round += 1
+
+    def clear_vram(self):
+        torch.cuda.empty_cache()
         gc.collect()
-        torch.cuda.empty_cache()  

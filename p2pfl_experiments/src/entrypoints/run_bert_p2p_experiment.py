@@ -31,9 +31,16 @@ DATA_DIST_WEIGHTS = [0.04842105, 0.04842105, 0.03842105, 0.03842105, 0.04842105,
     0.04842105, 0.03842105, 0.03842105, 0.03842105, 0.04842105,
     0.04842105, 0.03842105, 0.04842105, 0.04842105, 0.03842105,
     0.04842105, 0.03842105, 0.06842105, 0.03842105, 0.15000005]
+#DATA_DIST_WEIGHTS = [
+#    0.0625, 0.075, 0.05, 0.0875, 0.0625,
+#    0.0375, 0.1, 0.075, 0.05, 0.0625,
+#    0.0875, 0.05, 0.0625, 0.075, 0.0625
+#]
+
 ROUNDS = 5
 EPOCHS_PER_ROUND = 2
 BATCH_SIZE = 1
+EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}"
 # graceful stopping of the training nodes 
 def stop_nodes_handler(sig, frame, nodes: list[Node]):
     print(f"Received signal {sig}. Stopping all nodes...")
@@ -124,11 +131,12 @@ def set_test_settings() -> None:
     Settings.GOSSIP_MODELS_PERIOD = 5
     Settings.GOSSIP_MODELS_PER_ROUND = 50
     Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 50
-    Settings.TRAIN_SET_SIZE = 4
+    Settings.TRAIN_SET_SIZE = 10
     Settings.VOTE_TIMEOUT = 4000
     Settings.AGGREGATION_TIMEOUT = 30000
-    Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.01 * Settings.HEARTBEAT_TIMEOUT
+    Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.1 * Settings.HEARTBEAT_TIMEOUT
     Settings.LOG_LEVEL = "DEBUG"
+    
 
 
 def log_run_settings()-> None: 
@@ -148,33 +156,45 @@ def log_run_settings()-> None:
     logger.info("main", f"ROUNDS : {ROUNDS}")
     logger.info("main", f"EPOCHS_PER_ROUND : {EPOCHS_PER_ROUND}")
 
-
-
-
-
-
-
+def setup_results_dir(): 
+    base_results_dir: Path = Path(__file__).resolve().parents[2]/"run_results"
+    if not base_results_dir.exists():
+        base_results_dir.mkdir()
+    run_results_dir = base_results_dir/f"{EXPERIMENT_NAME}"
+    assert not run_results_dir.exists
+    run_results_dir.mkdir()
+    return run_results_dir
+    
 
 def main(): 
     torch.set_float32_matmul_precision("medium")
     set_test_settings()
     log_run_settings()
-    logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
+    
     
     model_init_blm = BERTLightningModel
     module_adapter : P2PFLModel = LightningModel
     #nr_nodes = 2
+
    
     nodes_refs: list[Node] = []
     # create the data distribution
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.0)
+    logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.99)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
-     
+    # create the directory to drop off the results of the run during the run.
+    run_dir = setup_results_dir()
+
     for i in range(NR_NODES): 
         # wrap it into Lightning data modules
         # create the nodes
-        new_node = Node(model = module_adapter(model_init_blm(cid=0, model_name= MODEL_NAME, num_labels=2, lr=2e-5)),
+        new_node = Node(model = module_adapter(model_init_blm(
+                                                cid=i,
+                                                model_name= MODEL_NAME,
+                                                num_labels=2,
+                                                lr=2e-5,
+                                                base_dir=run_dir)),
                         data = data_modules[i], 
                         address = f"BERT_{i}", 
                         protocol = InMemoryCommunicationProtocol,
