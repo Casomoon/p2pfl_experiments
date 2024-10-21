@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 from p2pfl.management.logger import logger
 from pathlib import Path
 from .bert_zoo import get_bert_by_string
+from ..stats.result_visualization import plot_confusion_matrix
 
 class BERTLightningModel(L.LightningModule):
     def __init__(
@@ -175,10 +176,14 @@ class BERTLightningModel(L.LightningModule):
     def on_validation_end(self) -> None:
         logger.info(self.module_name, "Validation complete. Clearing up VRAM")
         self.clear_vram()
-    def on_test_end(self) -> None:
+    def on_test_end(self, outputs) -> None:
         logger.info(self.module_name, "Test complete. Clearing up VRAM")
         self.clear_vram()
-
+        preds = torch.cat([out["preds"] for out in outputs])
+        labels = torch.cat([out["labels"] for out in outputs])
+        preds = preds.cpu().numpy()
+        labels = labels.cpu().numpy()
+        plot_confusion_matrix(preds, labels)
         self.round += 1
 
     def clear_vram(self):

@@ -107,6 +107,7 @@ class Aggregator:
         models_added = []
         for n in self.__models:
             models_added += n.get_contributors()
+        logger.info(self.node_name, f"Node has contributors {models_added}.")
         return models_added
 
     def add_model(self, model: P2PFLModel) -> List[str]:
