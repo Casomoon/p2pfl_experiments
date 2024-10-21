@@ -97,10 +97,18 @@ class BERTLightningModel(L.LightningModule):
         else: outputs = self(input_ids=input_ids, attention_mask=attention_mask) 
         loss = self.loss_fn(outputs.logits, labels)
         preds = torch.argmax(outputs.logits, dim=1)
-        self.log("train_loss", loss, prog_bar=True)
-        for metric in self.metrics.keys(): 
-            metric_fn = self.metrics[metric]
-            self.log(f"train_{metric}", metric_fn(preds, labels, prog_bar=True))
+        self.log("train_loss", loss, prog_bar=True, logger=True, on_epoch=True, on_step=False)
+        for metric_name, metric_fn in self.metrics.items(): 
+            metric_fn = metric_fn.to(self.device)
+            metric_value = metric_fn(preds,labels)
+            self.log(   
+                f"train_{metric_name}", 
+                metric_value, 
+                prog_bar=True, 
+                logger = True, 
+                on_epoch = True, 
+                on_step=False
+                )
         return loss
 
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
@@ -113,11 +121,19 @@ class BERTLightningModel(L.LightningModule):
             outputs = self(input_ids=input_ids, attention_mask=attention_mask, token_type_ids = token_type_ids)
         else: outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
-        self.log("val_loss", loss, prog_bar=True)
+        self.log("val_loss", loss, prog_bar=True, logger=True, on_epoch=True, on_step=False)
         preds = torch.argmax(outputs.logits, dim=1)
-        for metric in self.metrics.keys():
-            metric_fn = self.metrics[metric]
-            self.log(f"val_{metric}", metric_fn(preds, labels, prog_bar = True))
+        for metric_name, metric_fn in self.metrics.items():
+            metric_fn = metric_fn.to(self.device)
+            metric_value = metric_fn(preds, labels)
+            self.log(
+                f"val_{metric_name}", 
+                metric_value, 
+                prog_bar = True, 
+                logger = True,
+                on_epoch=True, 
+                on_step=False
+                )
         return loss
 
 
@@ -138,11 +154,18 @@ class BERTLightningModel(L.LightningModule):
         else: outputs = self(input_ids=input_ids, attention_mask=attention_mask)
         loss = self.loss_fn(outputs.logits, labels)
         preds = torch.argmax(outputs.logits, dim=1)
-        self.log("test_loss", loss, prog_bar=True)
-        for metric in self.metrics: 
-            metric_fn = self.metrics[metric]
-            self.log(f"test_{metric}", metric_fn(preds, labels, prog_bar= True))
-        self.log("test_metric", metric, prog_bar=True)
+        self.log("test_loss", loss, prog_bar=True, logger=True, on_epoch=True, on_step=False)
+        for metric_name, metric_fn in self.metrics.items(): 
+            metric_fn = metric_fn.to(self.device)
+            metric_value = metric_fn(preds, labels)
+            self.log(
+                f"test_{metric_name}",
+                metric_value,
+                prog_bar= True,
+                logger=True,
+                on_epoch=True,
+                on_step=False
+                )
         return {"test_loss": loss, "preds": preds, "targets": labels}
     
     def on_train_end(self) -> None:

@@ -34,9 +34,8 @@ from p2pfl.learning.pytorch.lightning_dataset import PyTorchExportStrategy
 from p2pfl.learning.pytorch.lightning_logger import FederatedLogger
 from pytorch_lightning.loggers import CSVLogger
 from p2pfl.management.logger import logger
-from p2pfl_experiments.src.modelling.bert_lightning import BERTLightningModel
 from pathlib import Path
-
+from src.modelling.bert_lightning import BERTLightningModel
 torch.set_num_threads(1)
 
 

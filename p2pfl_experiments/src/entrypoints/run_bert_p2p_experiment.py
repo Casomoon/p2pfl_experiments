@@ -26,11 +26,8 @@ mnli_data_path = root/"data"/"multinli_1.0"
 
 MODEL_NAME = "bert"
 STRUCTURE = "multi_star"
-NR_NODES = 20
-DATA_DIST_WEIGHTS = [0.04842105, 0.04842105, 0.03842105, 0.03842105, 0.04842105,
-    0.04842105, 0.03842105, 0.03842105, 0.03842105, 0.04842105,
-    0.04842105, 0.03842105, 0.04842105, 0.04842105, 0.03842105,
-    0.04842105, 0.03842105, 0.06842105, 0.03842105, 0.15000005]
+NR_NODES = 11
+DATA_DIST_WEIGHTS = [0.12, 0.08, 0.15, 0.10, 0.07, 0.05, 0.09, 0.11, 0.06, 0.10, 0.07]
 #DATA_DIST_WEIGHTS = [
 #    0.0625, 0.075, 0.05, 0.0875, 0.0625,
 #    0.0375, 0.1, 0.075, 0.05, 0.0625,
@@ -131,7 +128,7 @@ def set_test_settings() -> None:
     Settings.GOSSIP_MODELS_PERIOD = 5
     Settings.GOSSIP_MODELS_PER_ROUND = 50
     Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 50
-    Settings.TRAIN_SET_SIZE = 10
+    Settings.TRAIN_SET_SIZE = 11
     Settings.VOTE_TIMEOUT = 4000
     Settings.AGGREGATION_TIMEOUT = 30000
     Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.1 * Settings.HEARTBEAT_TIMEOUT
@@ -161,7 +158,7 @@ def setup_results_dir():
     if not base_results_dir.exists():
         base_results_dir.mkdir()
     run_results_dir = base_results_dir/f"{EXPERIMENT_NAME}"
-    assert not run_results_dir.exists
+    assert not run_results_dir.exists()
     run_results_dir.mkdir()
     return run_results_dir
     

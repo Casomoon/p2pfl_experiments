@@ -123,7 +123,7 @@ class Settings:
     ######
     # TRAINING
     ######
-    TRAIN_SET_SIZE: int = 4
+    #TRAIN_SET_SIZE: int = 4
     """
     Size of the training set.
     """
@@ -161,7 +161,7 @@ class Settings:
     GOSSIP_MODELS_PERIOD = 5
     GOSSIP_MODELS_PER_ROUND = 50
     GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 50
-    TRAIN_SET_SIZE = 4
+    TRAIN_SET_SIZE = 10
     VOTE_TIMEOUT = 4000
     AGGREGATION_TIMEOUT = 30000
     WAIT_HEARTBEATS_CONVERGENCE = 0.1 * HEARTBEAT_TIMEOUT
