@@ -29,6 +29,7 @@ transformers = "^4.44.2"
 pandas = "^2.2.2"
 datasets = "2.15.0"
 seaborn = "^0.13.2"
+scikit-learn = "^1.5.2"
 
 [build-system]
 requires = ["poetry-core"]

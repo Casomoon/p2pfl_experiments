@@ -45,6 +45,8 @@ class BERTLightningModel(L.LightningModule):
             "precision": BinaryPrecision()
             }
         self.loss_fn = nn.CrossEntropyLoss()
+        # each entry contains one processed batch -> one for each test_step call
+        self.test_step_outputs: list[dict] = []
         assert isinstance(base_dir, Path)
         assert base_dir.exists()
         self.setup_model_results_dir(base_dir)
@@ -167,24 +169,29 @@ class BERTLightningModel(L.LightningModule):
                 on_epoch=True,
                 on_step=False
                 )
-        return {"test_loss": loss, "preds": preds, "targets": labels}
+        self.test_step_outputs.append({"preds": preds, "labels": labels})
+        return loss
     
+    def on_test_epoch_end(self) -> None:
+        all_preds = torch.cat([out["preds"] for out in self.test_step_outputs])
+        all_labels = torch.cat([out["labels"] for out in self.test_step_outputs])
+        np_preds = all_preds.cpu().numpy()
+        np_labels = all_labels.cpu().numpy()
+        plot_confusion_matrix(np_preds, np_labels, self.node_dir, self.cid, self.round)
+        self.round += 1
+        self.test_step_outputs.clear()
+
     def on_train_end(self) -> None:
         logger.info(self.module_name, "Training complete. Clearing up VRAM")
-        gc.collect()
-        torch.cuda.empty_cache()
+        self.clear_vram()
+    
     def on_validation_end(self) -> None:
         logger.info(self.module_name, "Validation complete. Clearing up VRAM")
         self.clear_vram()
-    def on_test_end(self, outputs) -> None:
+    
+    def on_test_end(self) -> None:
         logger.info(self.module_name, "Test complete. Clearing up VRAM")
         self.clear_vram()
-        preds = torch.cat([out["preds"] for out in outputs])
-        labels = torch.cat([out["labels"] for out in outputs])
-        preds = preds.cpu().numpy()
-        labels = labels.cpu().numpy()
-        plot_confusion_matrix(preds, labels)
-        self.round += 1
 
     def clear_vram(self):
         torch.cuda.empty_cache()
