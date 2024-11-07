@@ -20,19 +20,20 @@ def plot_confusion_matrix(preds: np.ndarray, labels: np.ndarray, save_dir: Path,
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]): 
             annotations[i,j] = f"{cm[i,j]}\n({cm_percentage[i,j]:.2%})"
-    colormap = sns.color_palette("RdYlGn", as_cmap=True)
+    colormap = sns.color_palette("Blues", as_cmap=True)
     # Lock plotting and file saving to avoid thread conflicts resulting in scuffed plots
     with plot_lock: 
         fig = plt.figure(figsize=(6,6))
         ax = fig.add_subplot(1, 1, 1)
-        sns.heatmap(cm, ax=ax, annot=annotations, cmap=colormap, fmt='', annot_kws={"fontsize":10})
+        sns.heatmap(cm_percentage, ax=ax, annot=annotations, cmap=colormap, fmt='', annot_kws={"fontsize":10}, vmin=0.0,vmax=1.0)
         ax.set_xlabel("Predicted label")
         ax.set_ylabel("True label")
         ax.set_title(f"Confusion matrix Node {cid} Round {current_round}", fontsize=14)
         save_cm_path = save_dir/f"CM_{cid}_{current_round}.png"
         plt.savefig(fname=save_cm_path)
         plt.close(fig=fig)
-#class ResultVisualizer:
-    
 
-if __name__ == "__main__": pass
+
+class ResultVisualizer(): 
+    def __init__(run_dir: Path): 
+        pass
