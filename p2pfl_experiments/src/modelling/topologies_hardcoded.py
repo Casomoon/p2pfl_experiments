@@ -1,6 +1,7 @@
 import time
 import random
 from p2pfl.node import Node
+from typing import Callable
 
 #def mesh_full
 #def mesh_90
@@ -9,15 +10,15 @@ from p2pfl.node import Node
 #def ring
 #def wheel
 
-def get_topology(top_str: str): 
+def get_topology(top_str: str)->Callable: 
     topologies = {
         "fully_connected" : fully_connected, 
         "ring": ring, 
         "wheel": wheel
 
     }
-    assert top_str in topologies.keys()
-    top_func: function = topologies.get(top_str)
+    assert top_str in topologies, f"Unknown topology: '{top_str}'"
+    top_func: Callable = topologies.get(top_str)
     return top_func
 
 # fully connect all nodes in the network 
