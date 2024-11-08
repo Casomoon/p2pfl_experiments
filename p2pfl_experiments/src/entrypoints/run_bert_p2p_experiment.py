@@ -141,7 +141,7 @@ def setup_results_dir():
     run_results_dir.mkdir()
     return run_results_dir
 
-def set_seed(seed: int ): 
+def set_deterministic_training(seed: int ): 
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)
@@ -151,7 +151,7 @@ def set_seed(seed: int ):
 def main(): 
     torch.set_float32_matmul_precision("medium")
     log_run_settings()
-    set_seed(420)
+    set_deterministic_training(420)
     model_init_blm = BERTLightningModel
     module_adapter : P2PFLModel = LightningModel
     nodes_refs: list[Node] = []
