@@ -37,7 +37,7 @@ def parse_args():
     BATCH_SIZE = args.batch_size
     DATA_DIST_WEIGHTS = args.data_dist_weights
     print(sum(DATA_DIST_WEIGHTS))
-    assert math.isclose(sum(DATA_DIST_WEIGHTS),1.0)
+    assert math.isclose(sum(DATA_DIST_WEIGHTS),1.0,rel_tol=1e-5)
     # Set EXPERIMENT_NAME based on the values provided
     EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}"
 

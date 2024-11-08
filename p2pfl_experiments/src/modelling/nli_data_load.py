@@ -32,7 +32,7 @@ class NLIParser():
         if not data_loc.exists() : 
             logger.error(self.module_name, f"{data_loc.absolute} not found.")
             raise FileNotFoundError(f"{data_loc.absolute} not found.") 
-        assert math.isclose(sum(data_dist_weights), 1.0)
+        assert math.isclose(sum(data_dist_weights), 1.0, rel_tol=1e-5)
         assert len(data_dist_weights) == num_clients
         self.num_clients = num_clients
         self.data_dist_weights = data_dist_weights

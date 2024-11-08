@@ -10,7 +10,7 @@ rounds=10
 batch_size=2
 data_dist_weights=(0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555 0.055555)
 
-poetry run run_bert_p2p \
+srun poetry run run_bert_p2p \
         --model_name "$model_name"\
         --structure "$structure"\
         --nr_nodes "$nr_nodes"\
