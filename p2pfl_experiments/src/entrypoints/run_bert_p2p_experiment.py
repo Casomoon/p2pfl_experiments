@@ -148,10 +148,14 @@ def set_deterministic_training(seed: int ):
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
 
+def log_gpu_settings():
+    logger.info("main", f"CUDA availabru {torch.cuda.is_available()}")
+    logger.info("main", f"CUDA GPU {torch.cuda.get_device_name(0)}")
 def main(): 
     torch.set_float32_matmul_precision("medium")
     log_run_settings()
     set_deterministic_training(420)
+    log_gpu_settings()
     model_init_blm = BERTLightningModel
     module_adapter : P2PFLModel = LightningModel
     nodes_refs: list[Node] = []
