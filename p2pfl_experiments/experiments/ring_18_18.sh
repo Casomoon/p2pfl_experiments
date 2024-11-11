@@ -1,6 +1,7 @@
 #!/bin/bash
 cd ~/p2pfl_experiments/p2pfl_experiments
 pwd
+# basic settings
 model_name="bert"
 structure="ring"
 nr_nodes=18
@@ -9,6 +10,10 @@ epochs_per_round=1
 rounds=10
 batch_size=2
 data_dist_weights=(0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555)
+# gossip settings
+gossip_models_per_round=4
+gossip_models_period=5
+gossip_messages_per_period=75
 
 srun poetry run run_bert_p2p \
         --model_name "$model_name"\
@@ -18,5 +23,9 @@ srun poetry run run_bert_p2p \
         --epochs_per_round "$epochs_per_round"\
         --rounds "$rounds" \
         --batch_size "$batch_size"\
-        --data_dist_weights "${data_dist_weights[@]}"
+        --data_dist_weights "${data_dist_weights[@]}"\
+        --gossip_models_per_round "$gossip_models_per_round" \
+        --gossip_models_period "$gossip_models_period" \
+        --gossip_messages_per_period "$gossip_messages_per_period"
+
 

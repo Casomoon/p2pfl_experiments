@@ -1,4 +1,4 @@
-
+#base
 MODEL_NAME: str 
 STRUCTURE: str
 NR_NODES: int
@@ -8,13 +8,21 @@ ROUNDS : int
 EPOCHS_PER_ROUND: int 
 BATCH_SIZE: int 
 EXPERIMENT_NAME: str
+# gossip 
+GOSSIP_MODELS_PER_ROUND: int
+GOSSIP_MODELS_PERIOD: int
+GOSSIP_MESSAGES_PER_PERIOD: int
 from p2pfl.settings import Settings
 import argparse
 import math
 # call the overwrite of Settings before anything else
 def parse_args(): 
+    # base params
     global MODEL_NAME, STRUCTURE, NR_NODES, NR_LEARNERS, ROUNDS, EPOCHS_PER_ROUND, BATCH_SIZE, DATA_DIST_WEIGHTS, EXPERIMENT_NAME
+    # gossip params
+    global GOSSIP_MODELS_PER_ROUND, GOSSIP_MODELS_PERIOD, GOSSIP_MESSAGES_PER_PERIOD
     parser = argparse.ArgumentParser(description="Run P2P FL with customizable parameters")
+    # base args for the federation
     parser.add_argument("--model_name", type=str, default="bert", help="Model name")
     parser.add_argument("--structure", type=str, choices=["fully_connected", "ring", "star", "mesh", "multi_star"], default="multi_star", help="Network structure")
     parser.add_argument("--nr_nodes", type=int, default=20, help="Number of nodes")
@@ -24,6 +32,10 @@ def parse_args():
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size")
     parser.add_argument("--connection_prob", type=float, default=0.5, help="Connection probability for mesh structure")
     parser.add_argument("--data_dist_weights", type=float, nargs='+', default=[0.12, 0.08, 0.15, 0.10, 0.07, 0.05, 0.09, 0.11, 0.06, 0.10, 0.07], help="Data distribution weights")
+    # gossip parameters  
+    parser.add_argument("--gossip_models_per_round", type=int, default = 4)
+    parser.add_argument("--gossip_models_period", type=int, default = 5)
+    parser.add_argument("--gossip_messages_per_period", type=int, default=75)
     # get it 
     args = parser.parse_args()
     assert args.nr_learners<=args.nr_nodes
@@ -40,19 +52,21 @@ def parse_args():
     assert math.isclose(sum(DATA_DIST_WEIGHTS),1.0,rel_tol=1e-5)
     # Set EXPERIMENT_NAME based on the values provided
     EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}"
-
+    GOSSIP_MESSAGES_PER_PERIOD = args.gossip_messages_per_period
+    GOSSIP_MODELS_PER_ROUND = args.gossip_models_per_round
+    GOSSIP_MODELS_PERIOD = args.gossip_models_period
 def set_test_settings() -> None:
     """Set settings for testing."""
     Settings.GRPC_TIMEOUT = 0.5
     Settings.HEARTBEAT_PERIOD = 30
     Settings.HEARTBEAT_TIMEOUT = 4500
     Settings.GOSSIP_PERIOD = 5
-    Settings.TTL = 40
-    Settings.GOSSIP_MESSAGES_PER_PERIOD = 10000
-    Settings.AMOUNT_LAST_MESSAGES_SAVED = 10000
-    Settings.GOSSIP_MODELS_PERIOD = 5
-    Settings.GOSSIP_MODELS_PER_ROUND = 50
-    Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 50
+    Settings.TTL = 10
+    Settings.GOSSIP_MESSAGES_PER_PERIOD = GOSSIP_MESSAGES_PER_PERIOD
+    Settings.AMOUNT_LAST_MESSAGES_SAVED = 100
+    Settings.GOSSIP_MODELS_PERIOD = GOSSIP_MODELS_PERIOD
+    Settings.GOSSIP_MODELS_PER_ROUND = GOSSIP_MODELS_PER_ROUND
+    Settings.GOSSIP_EXIT_ON_X_EQUAL_ROUNDS = 10
     Settings.TRAIN_SET_SIZE = NR_LEARNERS
     Settings.VOTE_TIMEOUT = 4000
     Settings.AGGREGATION_TIMEOUT = 30000

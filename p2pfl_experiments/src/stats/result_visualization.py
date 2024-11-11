@@ -35,5 +35,5 @@ def plot_confusion_matrix(preds: np.ndarray, labels: np.ndarray, save_dir: Path,
 
 
 class ResultVisualizer(): 
-    def __init__(run_dir: Path): 
-        pass
+    def __init__(self, run_dir: Path): 
+        self.run_dir = run_dir
