@@ -11,9 +11,9 @@ rounds=10
 batch_size=2
 data_dist_weights=(0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555)
 # gossip settings
-gossip_models_per_round=4
-gossip_models_period=5
-gossip_messages_per_period=75
+gossip_models_per_round=5
+gossip_models_period=2
+gossip_messages_per_period=25
 
 srun poetry run run_bert_p2p \
         --model_name "$model_name"\

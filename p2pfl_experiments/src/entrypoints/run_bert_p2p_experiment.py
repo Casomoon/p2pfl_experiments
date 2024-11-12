@@ -50,18 +50,21 @@ def parse_args():
     DATA_DIST_WEIGHTS = args.data_dist_weights
     print(sum(DATA_DIST_WEIGHTS))
     assert math.isclose(sum(DATA_DIST_WEIGHTS),1.0,rel_tol=1e-5)
-    # Set EXPERIMENT_NAME based on the values provided
-    EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}"
+    
     GOSSIP_MESSAGES_PER_PERIOD = args.gossip_messages_per_period
     GOSSIP_MODELS_PER_ROUND = args.gossip_models_per_round
     GOSSIP_MODELS_PERIOD = args.gossip_models_period
+
+    # Set EXPERIMENT_NAME based on the values provided
+    EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}_GOSS_{GOSSIP_MESSAGES_PER_PERIOD}_{GOSSIP_MODELS_PER_ROUND}_{GOSSIP_MODELS_PERIOD}"
 def set_test_settings() -> None:
     """Set settings for testing."""
     Settings.GRPC_TIMEOUT = 0.5
     Settings.HEARTBEAT_PERIOD = 30
     Settings.HEARTBEAT_TIMEOUT = 4500
     Settings.GOSSIP_PERIOD = 5
-    Settings.TTL = 10
+    # cant be much lower, else the network dies on initialization
+    Settings.TTL = 20
     Settings.GOSSIP_MESSAGES_PER_PERIOD = GOSSIP_MESSAGES_PER_PERIOD
     Settings.AMOUNT_LAST_MESSAGES_SAVED = 100
     Settings.GOSSIP_MODELS_PERIOD = GOSSIP_MODELS_PERIOD
