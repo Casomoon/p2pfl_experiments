@@ -1,4 +1,4 @@
-import matplotlib
+import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns 
 import numpy as np
@@ -9,7 +9,6 @@ from threading import Lock
 
 plot_lock = Lock()
 
-#use the "Agg" matplotlib backend to avoid files only being half rendered in the png
 def plot_confusion_matrix(preds: np.ndarray, labels: np.ndarray, save_dir: Path, cid: int, current_round: int): 
     # base confusion_matrix
     cm = confusion_matrix(y_true=labels, y_pred=preds)
@@ -34,6 +33,56 @@ def plot_confusion_matrix(preds: np.ndarray, labels: np.ndarray, save_dir: Path,
         plt.close(fig=fig)
 
 
-class ResultVisualizer(): 
+class DFLAnalyzer(): 
     def __init__(self, run_dir: Path): 
         self.run_dir = run_dir
+        client_dirs = [dir for dir in self.run_dir.iterdir() if dir.is_dir() and dir.name!="plots"]
+        print(client_dirs)
+        self.client_dfs = self.load_client_dfs(client_dirs)
+    def load_client_dfs(self, client_dirs: list[Path]): 
+        client_dfs = {}
+        for cl_dir in client_dirs: 
+            print(f"CL_DIR: {cl_dir}")
+            client_idx = int(cl_dir.stem.split(sep="_")[1])
+            client_csv_path  = cl_dir/f"BERT_{client_idx}"/"version_0"/"metrics.csv"
+            print(client_csv_path)
+            assert client_csv_path.exists()
+            client_df = pd.read_csv(client_csv_path)
+            client_dfs.update({client_idx: {"df_base" : client_df}})
+        return client_dfs
+    def sep_train_val_test(self, ):
+        sets = ["train", "val", "test"]
+        for cl_idx, data_dict in self.client_dfs.items():
+            df = data_dict["df_base"]
+            # seperate each client df into train, val, test sets 
+            for set_name in sets:
+                set_df: pd.DataFrame = df[[col for col in df.columns if set_name in col]]
+                set_df.dropna(inplace=True)
+                set_df.reset_index(inplace=True)
+                set_df.drop("index",axis=1, inplace=True)
+                set_df.columns = [col.replace(f"{set_name}_", "") for col in set_df.columns]
+            data_dict[set_name] = set_df
+    
+    def plot_metrics(self):
+        """Plots test_f1, test_acc, and test_loss for all clients."""
+        metrics_to_plot = ["f1", "acc", "loss"]
+        metric_names = {"f1": "F1 Score", "acc": "Accuracy", "loss": "Loss"}
+        plot_analyzation = self.run_dir/"plots"
+        if not plot_analyzation.exists():
+            plot_analyzation.mkdir()
+        for metric in metrics_to_plot:
+            fig = plt.figure(figsize=(10, 6))
+            
+            for client_idx, data_dict in self.client_dfs.items():
+                if 'test' in data_dict:
+                    test_df = data_dict['test']
+                    if metric in test_df.columns:
+                        plt.plot(test_df[metric], label=f'Client {client_idx}')
+            
+            plt.title(f"Test {metric_names[metric]} for All Clients")
+            plt.xlabel("Epoch")
+            plt.ylabel(metric_names[metric])
+            plt.legend()
+            plt.grid(True)
+            plt.savefig(plot_analyzation/f"{metric_names[metric]}.png")
+            plt.close(fig=fig)
