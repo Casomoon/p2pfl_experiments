@@ -63,8 +63,8 @@ def set_test_settings() -> None:
     Settings.HEARTBEAT_PERIOD = 30
     Settings.HEARTBEAT_TIMEOUT = 4500
     Settings.GOSSIP_PERIOD = 5
-    # cant be much lower, else the network dies on initialization
-    Settings.TTL = 20
+    # FOR RING LOWEST TTL POSSIBLE
+    Settings.TTL = 15
     Settings.GOSSIP_MESSAGES_PER_PERIOD = GOSSIP_MESSAGES_PER_PERIOD
     Settings.AMOUNT_LAST_MESSAGES_SAVED = 100
     Settings.GOSSIP_MODELS_PERIOD = GOSSIP_MODELS_PERIOD
@@ -116,13 +116,13 @@ def wait_n_neigh(nodes: list[Node], n_neis: int, wait: int = 150, only_direct: b
     acum = 0.0
     while True:
         begin = time.time()
-        if all(len(n.get_neighbors(only_direct=only_direct)) == n_neis for n in nodes):
+        if all(len(n.get_neighbors(only_direct=only_direct)) >= n_neis for n in nodes):
             break
         time.sleep(0.1)
         acum += time.time() - begin
         logger.info("main",f"Time waited:{acum}")
         if acum > wait:
-            raise AssertionError()
+            break
         
 def log_run_settings()-> None: 
     logger.info("main", f"Settings.HEARTBEAT_PERIOD : {Settings.HEARTBEAT_PERIOD}")
@@ -178,7 +178,7 @@ def main():
     nodes_refs: list[Node] = []
     # create the data distribution
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.0)
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.99)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
     # create the directory to drop off the results of the run during the run.
@@ -204,7 +204,13 @@ def main():
     from ..modelling.topologies_hardcoded import get_topology
     topology_function = get_topology(STRUCTURE)
     topology_function(nodes_refs)
-    wait_n_neigh(nodes_refs,NR_NODES - 1, only_direct=False)
-    nodes_refs[0].set_start_learning(rounds = ROUNDS, epochs = EPOCHS_PER_ROUND)
+    # only direct !, refer
+    wait_n_neigh(nodes_refs, NR_NODES -1 , only_direct=True)
+    nodes_refs[15].set_start_learning(rounds=ROUNDS, epochs = EPOCHS_PER_ROUND)
+    logger.info("main", "15 started")
+    #nodes_refs[0].set_start_learning(rounds = ROUNDS, epochs = EPOCHS_PER_ROUND)
+    #logger.info("main", "0 started")
+    #nodes_refs[6].set_start_learning(rounds = ROUNDS, epochs = EPOCHS_PER_ROUND)
+    #logger.info("main", "6 started")
     one_day_in_sec = 86400 
     wait_to_finish(nodes_refs, one_day_in_sec)

@@ -13,7 +13,7 @@ data_dist_weights=(0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.0555
 # gossip settings
 gossip_models_per_round=5
 gossip_models_period=2
-gossip_messages_per_period=25
+gossip_messages_per_period=5
 
 srun poetry run run_bert_p2p \
         --model_name "$model_name"\
