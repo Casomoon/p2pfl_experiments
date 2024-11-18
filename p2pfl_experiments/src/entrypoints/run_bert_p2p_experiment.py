@@ -178,7 +178,7 @@ def main():
     nodes_refs: list[Node] = []
     # create the data distribution
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.99)
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.00)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
     # create the directory to drop off the results of the run during the run.
