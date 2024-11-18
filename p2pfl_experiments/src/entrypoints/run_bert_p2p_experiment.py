@@ -12,6 +12,9 @@ EXPERIMENT_NAME: str
 GOSSIP_MODELS_PER_ROUND: int
 GOSSIP_MODELS_PERIOD: int
 GOSSIP_MESSAGES_PER_PERIOD: int
+# niid
+NIID_DATA_AMOUNT: bool 
+
 from p2pfl.settings import Settings
 import argparse
 import math
@@ -21,6 +24,8 @@ def parse_args():
     global MODEL_NAME, STRUCTURE, NR_NODES, NR_LEARNERS, ROUNDS, EPOCHS_PER_ROUND, BATCH_SIZE, DATA_DIST_WEIGHTS, EXPERIMENT_NAME
     # gossip params
     global GOSSIP_MODELS_PER_ROUND, GOSSIP_MODELS_PERIOD, GOSSIP_MESSAGES_PER_PERIOD
+    # niid data dist
+    global NIID_DATA_AMOUNT
     parser = argparse.ArgumentParser(description="Run P2P FL with customizable parameters")
     # base args for the federation
     parser.add_argument("--model_name", type=str, default="bert", help="Model name")
@@ -31,11 +36,12 @@ def parse_args():
     parser.add_argument("--epochs_per_round", type=int, default=1, help="Epochs per round")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size")
     parser.add_argument("--connection_prob", type=float, default=0.5, help="Connection probability for mesh structure")
-    parser.add_argument("--data_dist_weights", type=float, nargs='+', default=[0.12, 0.08, 0.15, 0.10, 0.07, 0.05, 0.09, 0.11, 0.06, 0.10, 0.07], help="Data distribution weights")
     # gossip parameters  
     parser.add_argument("--gossip_models_per_round", type=int, default = 4)
     parser.add_argument("--gossip_models_period", type=int, default = 5)
     parser.add_argument("--gossip_messages_per_period", type=int, default=75)
+    # iid or not iid, this is here the question 
+    parser.add_argument("--niid_data_amount", type=bool)
     # get it 
     args = parser.parse_args()
     assert args.nr_learners<=args.nr_nodes
@@ -55,8 +61,10 @@ def parse_args():
     GOSSIP_MODELS_PER_ROUND = args.gossip_models_per_round
     GOSSIP_MODELS_PERIOD = args.gossip_models_period
 
+    assert args.niid_data_amount is not None
+    NIID_DATA_AMOUNT = args.niid_data_amount
     # Set EXPERIMENT_NAME based on the values provided
-    EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}_GOSS_{GOSSIP_MESSAGES_PER_PERIOD}_{GOSSIP_MODELS_PER_ROUND}_{GOSSIP_MODELS_PERIOD}"
+    EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}_GOSS_{GOSSIP_MESSAGES_PER_PERIOD}_{GOSSIP_MODELS_PER_ROUND}_{GOSSIP_MODELS_PERIOD}_NIID_DATA_DIST_{NIID_DATA_AMOUNT}"
 def set_test_settings() -> None:
     """Set settings for testing."""
     Settings.GRPC_TIMEOUT = 0.5
@@ -143,11 +151,12 @@ def log_run_settings()-> None:
     logger.info("main", f"STRUCTURE : {STRUCTURE}")
     logger.info("main", f"NR_NODES : {NR_NODES}")
     logger.info("main", f"NR_LEARNERS : {NR_LEARNERS}")
-    logger.info("main", f"DATA_DIST_WEIGHTS : {DATA_DIST_WEIGHTS}")
     logger.info("main", f"ROUNDS : {ROUNDS}")
     logger.info("main", f"EPOCHS_PER_ROUND : {EPOCHS_PER_ROUND}")
     logger.info("main", f"BATCH_SIZE : {BATCH_SIZE}")
     logger.info("main", f"EXPERIMENT_NAME : {EXPERIMENT_NAME}")
+    # niid 
+    logger.info("main", f"NIID_DATA_AMOUNTS: {NIID_DATA_AMOUNT}")
 
 def setup_results_dir(): 
     base_results_dir: Path = Path(__file__).resolve().parents[2]/"run_results"
@@ -178,7 +187,20 @@ def main():
     nodes_refs: list[Node] = []
     # create the data distribution
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, DATA_DIST_WEIGHTS, MODEL_NAME, BATCH_SIZE, overall_cut=0.00)
+    data_dist: list[int]
+    if NIID_DATA_AMOUNT: 
+        niid_data_dist =  [
+        0.08, 0.06, 0.07, 0.05, 0.09, 0.05,
+        0.10, 0.06, 0.05, 0.07, 0.05, 0.08,
+        0.06, 0.05, 0.05, 0.07, 0.05, 0.06
+        ]
+        data_dist = niid_data_dist
+    else: 
+        equal_split = float(1/NR_NODES)
+        iid_amount_dist = [equal_split for _ in range(NR_NODES)]
+        data_dist = iid_amount_dist
+    logger.info("main", f"Generating data dist {data_dist}")
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, data_dist, MODEL_NAME, BATCH_SIZE, overall_cut=0.00)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
     # create the directory to drop off the results of the run during the run.
