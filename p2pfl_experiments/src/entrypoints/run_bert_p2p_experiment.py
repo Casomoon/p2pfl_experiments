@@ -53,9 +53,7 @@ def parse_args():
     ROUNDS = args.rounds
     EPOCHS_PER_ROUND = args.epochs_per_round
     BATCH_SIZE = args.batch_size
-    DATA_DIST_WEIGHTS = args.data_dist_weights
-    print(sum(DATA_DIST_WEIGHTS))
-    assert math.isclose(sum(DATA_DIST_WEIGHTS),1.0,rel_tol=1e-5)
+    #assert math.isclose(sum(DATA_DIST_WEIGHTS),1.0,rel_tol=1e-5)
     
     GOSSIP_MESSAGES_PER_PERIOD = args.gossip_messages_per_period
     GOSSIP_MODELS_PER_ROUND = args.gossip_models_per_round
@@ -189,16 +187,34 @@ def main():
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
     data_dist: list[int]
     if NIID_DATA_AMOUNT: 
-        niid_data_dist =  [
-        0.08, 0.06, 0.07, 0.05, 0.09, 0.05,
-        0.10, 0.06, 0.05, 0.07, 0.05, 0.08,
-        0.06, 0.05, 0.05, 0.07, 0.05, 0.06
+        niid_data_dist = [
+        0.15,  
+        0.13,  
+        0.11,  
+        0.10,  
+        0.08, 
+        0.06, 
+        0.05, 
+        0.05, 
+        0.05, 
+        0.04, 
+        0.04, 
+        0.03, 
+        0.03, 
+        0.02, 
+        0.02, 
+        0.025, 
+        0.01, 
+        0.005  
         ]
+        
         data_dist = niid_data_dist
     else: 
         equal_split = float(1/NR_NODES)
         iid_amount_dist = [equal_split for _ in range(NR_NODES)]
         data_dist = iid_amount_dist
+    print(sum(data_dist))
+    assert math.isclose(sum(data_dist),1.0,rel_tol=1e-5)    
     logger.info("main", f"Generating data dist {data_dist}")
     nli_data_parser = NLIParser(mnli_data_path, NR_NODES, data_dist, MODEL_NAME, BATCH_SIZE, overall_cut=0.00)
     # prepare the data split initially 
