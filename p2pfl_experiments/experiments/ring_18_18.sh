@@ -17,7 +17,7 @@ gossip_messages_per_period=5
 # niid
 niid_data_amount=True
 
-poetry run run_bert_p2p \
+srun poetry run run_bert_p2p \
         --model_name "$model_name"\
         --structure "$structure"\
         --nr_nodes "$nr_nodes"\
