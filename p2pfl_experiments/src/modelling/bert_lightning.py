@@ -17,7 +17,6 @@ class BERTLightningModel(L.LightningModule):
         model_name: str= "bert", 
         num_labels: int = 2,
         weight_decay: float = 0.01,
-        warmup_steps: int = 100,
         lr: float = 2e-5,
         seed: Optional[int] = None,
         base_dir: Path = None
@@ -84,10 +83,11 @@ class BERTLightningModel(L.LightningModule):
             weight_decay=self.weight_decay
         )
         total_steps = self.trainer.estimated_stepping_batches
+        warmup_steps = int(total_steps*0.1)
         scheduler = get_linear_schedule_with_warmup(
             optimizer,
-            num_warmup_steps=self.warmup_steps,
-            num_total_steps=total_steps
+            num_warmup_steps=warmup_steps,
+            num_training_steps=total_steps
             )
     
         return {
