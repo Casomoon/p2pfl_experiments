@@ -4,6 +4,7 @@ import torch.nn as nn
 import lightning as L 
 from torchmetrics.classification import BinaryAccuracy, BinaryF1Score, BinaryRecall, BinaryPrecision
 from typing import Optional, Tuple
+from transformers import get_linear_schedule_with_warmup
 from p2pfl.management.logger import logger
 from pathlib import Path
 from .bert_zoo import get_bert_by_string
@@ -82,10 +83,21 @@ class BERTLightningModel(L.LightningModule):
             lr=self.lr,
             weight_decay=self.weight_decay
         )
+        total_steps = self.trainer.estimated_stepping_batches
+        scheduler = get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=self.warmup_steps,
+            num_total_steps=total_steps
+            )
     
-        # Learning rate scheduler (linear warmup and decay)
-        
-        return optimizer
+        return {
+        'optimizer': optimizer,
+        'lr_scheduler': {
+            'scheduler': scheduler,
+            'interval': 'step',
+            'frequency': 1
+            }
+        }
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int) -> torch.Tensor:
         """Training step of the BERT models."""
