@@ -30,7 +30,6 @@ class BERTLightningModel(L.LightningModule):
             torch.cuda.manual_seed_all(seed)
         self.cid = cid 
         self.weight_decay = weight_decay
-        self.warmup_steps = warmup_steps
         self.module_name = f"BERT_Lightning_{self.cid}"
         self.model = get_bert_by_string(model_name, num_labels)
         use_token_type_ids = True 
