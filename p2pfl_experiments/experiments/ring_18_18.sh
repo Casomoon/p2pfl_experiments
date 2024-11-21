@@ -4,8 +4,8 @@ pwd
 # basic settings
 model_name="bert"
 structure="ring"
-nr_nodes=18
-nr_learners=18
+nr_nodes=17
+nr_learners=17
 epochs_per_round=1
 rounds=4
 batch_size=1
