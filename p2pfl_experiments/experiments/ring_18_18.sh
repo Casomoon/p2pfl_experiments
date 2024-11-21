@@ -7,8 +7,8 @@ structure="ring"
 nr_nodes=18
 nr_learners=18
 epochs_per_round=1
-rounds=5
-batch_size=2
+rounds=4
+batch_size=1
 #data_dist_weights=(0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555 0.05555555)
 # gossip settings
 gossip_models_per_round=5
