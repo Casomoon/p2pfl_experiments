@@ -38,9 +38,10 @@ def ring(nodes: list[Node]):
 
 def wheel(nodes: list[Node]): 
     ring(nodes)
-    assert len(nodes) == 20
-    for i in range(len(nodes)/2):
-        nodes[i].connect(nodes[i+10].addr)
+    num_nodes = len(nodes)
+    for i in range(num_nodes//2):
+        opposite_index = i+(num_nodes//2)%num_nodes
+        nodes[i].connect(nodes[opposite_index].addr)
         time.sleep(0.1)
 
 def star(nodes: list[Node]): 
