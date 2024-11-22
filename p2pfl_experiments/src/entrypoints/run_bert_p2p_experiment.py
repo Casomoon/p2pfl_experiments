@@ -12,6 +12,7 @@ EXPERIMENT_NAME: str
 GOSSIP_MODELS_PER_ROUND: int
 GOSSIP_MODELS_PERIOD: int
 GOSSIP_MESSAGES_PER_PERIOD: int
+GOSSIP_TTL: int
 # niid
 NIID_DATA_AMOUNT: bool 
 
@@ -23,13 +24,13 @@ def parse_args():
     # base params
     global MODEL_NAME, STRUCTURE, NR_NODES, NR_LEARNERS, ROUNDS, EPOCHS_PER_ROUND, BATCH_SIZE, DATA_DIST_WEIGHTS, EXPERIMENT_NAME
     # gossip params
-    global GOSSIP_MODELS_PER_ROUND, GOSSIP_MODELS_PERIOD, GOSSIP_MESSAGES_PER_PERIOD
+    global GOSSIP_MODELS_PER_ROUND, GOSSIP_MODELS_PERIOD, GOSSIP_MESSAGES_PER_PERIOD, GOSSIP_TTL
     # niid data dist
     global NIID_DATA_AMOUNT
     parser = argparse.ArgumentParser(description="Run P2P FL with customizable parameters")
     # base args for the federation
     parser.add_argument("--model_name", type=str, default="bert", help="Model name")
-    parser.add_argument("--structure", type=str, choices=["fully_connected", "ring", "star", "mesh", "multi_star"], default="multi_star", help="Network structure")
+    parser.add_argument("--structure", type=str, choices=["fully_connected", "ring", "mesh", "wheel"], help="Network structure")
     parser.add_argument("--nr_nodes", type=int, default=20, help="Number of nodes")
     parser.add_argument("--nr_learners", type=int, default=20, help="Number of learners")
     parser.add_argument("--rounds", type=int, default=10, help="Number of training rounds")
@@ -40,6 +41,7 @@ def parse_args():
     parser.add_argument("--gossip_models_per_round", type=int, default = 4)
     parser.add_argument("--gossip_models_period", type=int, default = 5)
     parser.add_argument("--gossip_messages_per_period", type=int, default=75)
+    parser.add_argument("--gossip_ttl", type=int)
     # iid or not iid, this is here the question 
     parser.add_argument("--niid_data_amount", type=bool)
     # get it 
@@ -58,11 +60,12 @@ def parse_args():
     GOSSIP_MESSAGES_PER_PERIOD = args.gossip_messages_per_period
     GOSSIP_MODELS_PER_ROUND = args.gossip_models_per_round
     GOSSIP_MODELS_PERIOD = args.gossip_models_period
+    GOSSIP_TTL = args.gossip_ttl
 
     assert args.niid_data_amount is not None
     NIID_DATA_AMOUNT = args.niid_data_amount
     # Set EXPERIMENT_NAME based on the values provided
-    EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}_GOSS_{GOSSIP_MESSAGES_PER_PERIOD}_{GOSSIP_MODELS_PER_ROUND}_{GOSSIP_MODELS_PERIOD}_NIID_DATA_DIST_{NIID_DATA_AMOUNT}"
+    EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}_GOSS_{GOSSIP_MESSAGES_PER_PERIOD}_{GOSSIP_MODELS_PER_ROUND}_{GOSSIP_MODELS_PERIOD}_{GOSSIP_TTL}_NIID_DATA_DIST_{NIID_DATA_AMOUNT}"
 def set_test_settings() -> None:
     """Set settings for testing."""
     Settings.GRPC_TIMEOUT = 0.5
@@ -70,7 +73,7 @@ def set_test_settings() -> None:
     Settings.HEARTBEAT_TIMEOUT = 4500
     Settings.GOSSIP_PERIOD = 5
     # FOR RING LOWEST TTL POSSIBLE
-    Settings.TTL = 15
+    Settings.TTL = GOSSIP_TTL
     Settings.GOSSIP_MESSAGES_PER_PERIOD = GOSSIP_MESSAGES_PER_PERIOD
     Settings.AMOUNT_LAST_MESSAGES_SAVED = 100
     Settings.GOSSIP_MODELS_PERIOD = GOSSIP_MODELS_PERIOD

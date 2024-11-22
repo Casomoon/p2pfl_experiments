@@ -39,11 +39,22 @@ def ring(nodes: list[Node]):
 def wheel(nodes: list[Node]): 
     ring(nodes)
     num_nodes = len(nodes)
+    even = (num_nodes%2==0) 
+
     for i in range(num_nodes//2):
         opposite_index = i+(num_nodes//2)%num_nodes
         nodes[i].connect(nodes[opposite_index].addr)
         time.sleep(0.1)
-
+    if not even:
+        # If the number of nodes is odd, connect the middle node to its nearest opposites
+        middle_index = num_nodes // 2
+        left_neighbor = (middle_index - 1) % num_nodes
+        right_neighbor = (middle_index + 1) % num_nodes
+        
+        nodes[middle_index].connect(nodes[left_neighbor].addr)
+        nodes[middle_index].connect(nodes[right_neighbor].addr)
+        time.sleep(0.1)
+        
 def star(nodes: list[Node]): 
     num_nodes = len(nodes)
     central_node = nodes[0]  # Select the first node as the central node

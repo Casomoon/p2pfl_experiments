@@ -14,6 +14,7 @@ batch_size=1
 gossip_models_per_round=5
 gossip_models_period=2
 gossip_messages_per_period=5
+gossip_ttl=15
 # niid
 niid_data_amount=True
 
@@ -28,6 +29,7 @@ srun poetry run run_bert_p2p \
         --gossip_models_per_round "$gossip_models_per_round" \
         --gossip_models_period "$gossip_models_period"\
         --gossip_messages_per_period "$gossip_messages_per_period"\
+        --gossip_ttl "$gossip_ttl"\
         --niid_data_amount "$niid_data_amount"
 
 
