@@ -48,11 +48,11 @@ def wheel(nodes: list[Node]):
     if not even:
         # If the number of nodes is odd, connect the middle node to its nearest opposites
         middle_index = num_nodes // 2
-        left_neighbor = (middle_index - 1) % num_nodes
-        right_neighbor = (middle_index + 1) % num_nodes
+        opposite_left = (middle_index - (num_nodes // 2)) % num_nodes
+        opposite_right = (middle_index + (num_nodes // 2)) % num_nodes
         
-        nodes[middle_index].connect(nodes[left_neighbor].addr)
-        nodes[middle_index].connect(nodes[right_neighbor].addr)
+        nodes[middle_index].connect(nodes[opposite_left].addr)
+        nodes[middle_index].connect(nodes[opposite_right].addr)
         time.sleep(0.1)
         
 def star(nodes: list[Node]): 

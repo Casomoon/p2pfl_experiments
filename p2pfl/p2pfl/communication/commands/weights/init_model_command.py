@@ -17,7 +17,7 @@
 #
 
 """InitModel command."""
-
+import traceback
 from typing import Callable, Optional
 
 from p2pfl.communication.commands.command import Command
@@ -90,6 +90,7 @@ class InitModelCommand(Command):
                 self.stop()
 
             except Exception as e:
+                logger.error(self.state.addr, f"{traceback.format_exc()}")
                 logger.error(self.state.addr, f"Unknown error adding model: {e}")
                 self.stop()
 
