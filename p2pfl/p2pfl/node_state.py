@@ -40,7 +40,7 @@ class NodeState:
         train_set_votes_lock(threading.Lock): The lock for the train set votes.
         start_thread_lock(threading.Lock): The lock for the start thread.
         wait_votes_ready_lock(threading.Lock): The lock for the wait votes ready.
-        model_initialized_lock(threading.Lock): The lock for the model initialized.
+        model_initialized_event(threading.Lock): The event for the model initialized.
 
     Args:
         addr: The address of the node.
@@ -75,8 +75,9 @@ class NodeState:
         self.train_set_votes_lock = threading.Lock()
         self.start_thread_lock = threading.Lock()
         self.wait_votes_ready_lock = threading.Lock()
-        self.model_initialized_lock = threading.Lock()
-        self.model_initialized_lock.acquire()
+        
+        # Events
+        self.model_initialized_event = threading.Event()
         self.wait_aggregated_model_event = threading.Event()
         self.wait_aggregated_model_event.set()
 

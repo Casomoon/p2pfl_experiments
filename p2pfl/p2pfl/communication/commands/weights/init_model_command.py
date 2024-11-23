@@ -66,7 +66,7 @@ class InitModelCommand(Command):
                 return
 
             # Check moment (not init and invalid round)
-            if not self.state.model_initialized_lock.locked():
+            if self.state.model_initialized_event.is_set():
                 logger.error(
                     self.state.addr,
                     "Model initizalization message when the model is already initialized. Ignored.",
@@ -77,7 +77,7 @@ class InitModelCommand(Command):
                 # Set new weights
                 self.learner.set_model(weights)
                 # Release lock
-                self.state.model_initialized_lock.release()
+                self.state.model_initialized_event.set()
                 logger.info(self.state.addr, "🤖 Model Weights Initialized")
 
             # Warning: these stops can cause a denegation of service attack

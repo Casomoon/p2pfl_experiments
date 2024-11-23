@@ -331,7 +331,7 @@ class Node:
                 self._communication_protocol.build_msg(StartLearningCommand.get_name(), [str(rounds), str(epochs)])
             )
             # Set model initialized
-            self.state.model_initialized_lock.release()
+            self.state.model_initialized_event.set()
             # Broadcast initialize model
             self._communication_protocol.broadcast(self._communication_protocol.build_msg(ModelInitializedCommand.get_name()))
             # Learning Thread
