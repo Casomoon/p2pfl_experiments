@@ -1,8 +1,8 @@
-#!/bin/bash
 cd ~/p2pfl_experiments/p2pfl_experiments
 pwd
+# basic settings
 model_name="bert"
-structure="wheel"
+structure="fully_connected"
 nr_nodes=17
 nr_learners=17
 epochs_per_round=1

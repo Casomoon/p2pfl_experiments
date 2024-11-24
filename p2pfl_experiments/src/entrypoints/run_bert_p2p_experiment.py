@@ -127,7 +127,7 @@ def wait_n_neigh(nodes: list[Node], n_neis: int, wait: int = 150, only_direct: b
         begin = time.time()
         if all(len(n.get_neighbors(only_direct=only_direct)) >= n_neis for n in nodes):
             break
-        time.sleep(0.1)
+        time.sleep(10)
         acum += time.time() - begin
         logger.info("main",f"Time waited:{acum}")
         if acum > wait:
