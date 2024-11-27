@@ -213,5 +213,5 @@ class BERTLightningModel(L.LightningModule):
     
     def cur_model_to_disk(self):
         model_name = f"{self.module_name}_{self.round}"
-        model_path = self.node_dir/model_name/".pth"
+        model_path = self.node_dir/f"{model_name}.pth"
         torch.save(self.model.state_dict(), model_path)
