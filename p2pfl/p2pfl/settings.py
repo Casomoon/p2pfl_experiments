@@ -43,10 +43,13 @@ class Settings:
     """
     Directory to save logs.
     """
+    LOG_NAME: str = None
+    
     EXCLUDE_BEAT_LOGS: bool = True
     """
     Exclude heartbeat logs.
     """
+
 
     ######
     # HEARTBEAT

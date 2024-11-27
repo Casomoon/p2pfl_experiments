@@ -84,6 +84,7 @@ def set_test_settings() -> None:
     Settings.AGGREGATION_TIMEOUT = 30000
     Settings.WAIT_HEARTBEATS_CONVERGENCE = 0.1 * Settings.HEARTBEAT_TIMEOUT
     Settings.LOG_LEVEL = "DEBUG"
+    Settings.LOG_NAME = EXPERIMENT_NAME
 parse_args()
 set_test_settings()
 
@@ -103,6 +104,8 @@ from p2pfl.learning.aggregators.fedavg import FedAvg
 from p2pfl.utils import wait_to_finish
 # singleton logger
 from p2pfl.management.logger import logger
+# update logger name, required for parallelized experiment execution
+logger.update_log_file_path(EXPERIMENT_NAME)
 from ..modelling.bert_lightning import BERTLightningModel
 from ..modelling.nli_data_load import NLIParser
 from pathlib import Path

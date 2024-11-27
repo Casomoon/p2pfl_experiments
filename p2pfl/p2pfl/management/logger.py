@@ -237,6 +237,37 @@ class Logger:
         # Register cleanup function to close the queue on exit
         atexit.register(self.cleanup)
 
+
+    def update_log_file_path(self, experiment_name: str)->None: 
+        """
+        Update the log file path based on the experiment name.
+
+        Args:
+            experiment_name: The name of the current experiment.
+        """
+        # stop the queue listener in order to modify the file handler
+        if self.queue_listener:
+            self.queue_listener.stop()
+        # filter handlers, explicitly remove the RotatingFileHandler
+        self.queue_listener.handlers = [
+            handler for handler in self.queue_listener.handlers if not isinstance(handler, RotatingFileHandler)
+            ]
+        assert Settings.LOG_NAME is not None
+        file_name = f"{Settings.LOG_DIR}/{Settings.LOG_NAME}.log"
+        file_handler = RotatingFileHandler(filename=file_name,
+                                           maxBytes=5000000, 
+                                           backupCount=2)
+        file_formatter = logging.Formatter(
+            "[ %(asctime)s | %(node)s | %(levelname)s ]: %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+        file_handler.setFormatter(file_formatter)
+        
+        # add the modified RotatingFileHandler to the handlers list
+        self.queue_listener.handlers.append(file_handler)
+        # restart
+        self.queue_listener.start()
+
     def cleanup(self) -> None:
         """Cleanup the logger."""
         # Unregister nodes
@@ -295,6 +326,7 @@ class Logger:
 
         """
         return Logger.get_instance().logger.getEffectiveLevel()
+
 
     @staticmethod
     def get_level_name(lvl: int) -> str:
@@ -609,4 +641,4 @@ class Logger:
         Logger.get_instance().warning(node, f"Uncatched Round Finished on Logger {r}")
 
 
-logger = Logger
+logger = Logger.get_instance()
