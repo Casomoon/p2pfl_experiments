@@ -2,9 +2,11 @@ import torch
 import gc 
 import torch.nn as nn
 import lightning as L 
+import torch
 from torchmetrics.classification import BinaryAccuracy, BinaryF1Score, BinaryRecall, BinaryPrecision
 from typing import Optional, Tuple
 from transformers import get_linear_schedule_with_warmup
+from transformers.modeling_utils import PreTrainedModel
 from p2pfl.management.logger import logger
 from pathlib import Path
 from .bert_zoo import get_bert_by_string
@@ -31,7 +33,7 @@ class BERTLightningModel(L.LightningModule):
         self.cid = cid 
         self.weight_decay = weight_decay
         self.module_name = f"BERT_Lightning_{self.cid}"
-        self.model = get_bert_by_string(model_name, num_labels)
+        self.model : PreTrainedModel = get_bert_by_string(model_name, num_labels)
         use_token_type_ids = True 
         if model_name == "distilbert": use_token_type_ids = False
         self.use_token_type_ids = use_token_type_ids
@@ -189,6 +191,7 @@ class BERTLightningModel(L.LightningModule):
         np_preds = all_preds.cpu().numpy()
         np_labels = all_labels.cpu().numpy()
         plot_confusion_matrix(np_preds, np_labels, self.node_dir, self.cid, self.round)
+        self.cur_model_to_disk()
         self.round += 1
         self.test_step_outputs.clear()
 
@@ -207,3 +210,8 @@ class BERTLightningModel(L.LightningModule):
     def clear_vram(self):
         torch.cuda.empty_cache()
         gc.collect()
+    
+    def cur_model_to_disk(self):
+        model_name = f"{self.module_name}_{self.round}"
+        model_path = self.node_dir/model_name/".pth"
+        torch.save(self.model.state_dict(), model_path)

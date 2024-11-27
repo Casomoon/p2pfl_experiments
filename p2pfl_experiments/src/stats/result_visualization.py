@@ -77,7 +77,8 @@ class DFLAnalyzer():
                 if 'test' in data_dict:
                     test_df = data_dict['test']
                     if metric in test_df.columns:
-                        plt.plot(test_df[metric], label=f'Client {client_idx}')
+                        exclude_zeroth_epoch = test_df.iloc[1:]
+                        plt.plot(exclude_zeroth_epoch[metric], label=f'Client {client_idx}')
             
             plt.title(f"Test {metric_names[metric]} for All Clients")
             plt.xlabel("Epoch")
