@@ -71,19 +71,27 @@ class DFLAnalyzer():
         if not plot_analyzation.exists():
             plot_analyzation.mkdir()
         for metric in metrics_to_plot:
-            fig = plt.figure(figsize=(10, 6))
-            
-            for client_idx, data_dict in self.client_dfs.items():
+            fig,ax = plt.subplots(figsize=(10, 6))
+            max_epochs = 0
+            sorted_clients = sorted(self.client_dfs.items(), key=lambda x: x[0])
+            for client_idx, data_dict in sorted_clients:
                 if 'test' in data_dict:
                     test_df = data_dict['test']
                     if metric in test_df.columns:
                         exclude_zeroth_epoch = test_df.iloc[1:]
-                        plt.plot(exclude_zeroth_epoch[metric], label=f'Client {client_idx}')
+                        max_epochs=max(max_epochs, len(exclude_zeroth_epoch))
+                        ax.plot(exclude_zeroth_epoch[metric], label=f'Client {client_idx}')
             
-            plt.title(f"Test {metric_names[metric]} for All Clients")
-            plt.xlabel("Epoch")
-            plt.ylabel(metric_names[metric])
-            plt.legend()
+            ax.set_title(f"Test {metric_names[metric]} for All Clients")
+            ax.set_xlabel("Epoch")
+            ax.set_ylabel(metric_names[metric])
+            ax.set_xticks(range(1, max_epochs + 1))
+            legend = ax.legend(
+            loc="upper center", 
+            bbox_to_anchor=(0.5, -0.1), 
+            ncol=5, 
+            frameon=True
+            )
             plt.grid(True)
-            plt.savefig(plot_analyzation/f"{metric_names[metric]}.png")
+            plt.savefig(plot_analyzation/f"{metric_names[metric]}.png", bbox_inches='tight')
             plt.close(fig=fig)
