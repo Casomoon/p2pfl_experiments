@@ -19,6 +19,8 @@ NIID_DATA_AMOUNT: bool
 from p2pfl.settings import Settings
 import argparse
 import math
+import random
+from transformers import set_seed
 # call the overwrite of Settings before anything else
 def parse_args(): 
     # base params
@@ -171,13 +173,23 @@ def setup_results_dir():
     run_results_dir.mkdir()
     return run_results_dir
 
-def set_deterministic_training(seed: int ): 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+def set_deterministic_training(seed: int):
+    # Python & NumPy
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    # PyTorch
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
 
+    # Force deterministic algorithms
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # If you are on PyTorch >= 1.8
+    torch.use_deterministic_algorithms(True)
+
+    set_seed(seed)
 def log_gpu_settings():
     logger.info("main", f"CUDA availabru {torch.cuda.is_available()}")
     logger.info("main", f"CUDA GPU {torch.cuda.get_device_name(0)}")

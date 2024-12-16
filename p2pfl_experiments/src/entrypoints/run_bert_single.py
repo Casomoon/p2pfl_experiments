@@ -4,6 +4,7 @@ from ..modelling.bert_lightning import BERTLightningModel
 from ..modelling.nli_data_load import NLIParser
 from ..modelling.nli_pl_wrapper import NLIDataModule
 from torch.utils.data import Dataset, DataLoader
+from torchmetrics.classification import BinaryAccuracy, BinaryF1Score, BinaryRecall, BinaryPrecision
 import numpy as np
 import lightning as L
 from lightning import Trainer
@@ -13,56 +14,87 @@ import torch
 import gc 
 from p2pfl.learning.dataset.p2pfl_dataset import DataExportStrategy, P2PFLDataset
 from p2pfl.learning.pytorch.lightning_dataset import PyTorchExportStrategy
+import random
 root = Path(__file__).resolve().parents[2]
 csv_save = root/"logs/single_bert"
 mnli_data_path = root/"data"/"multinli_1.0"
 model = "BERT"
 
-from lightning.pytorch.callbacks import Callback
+
 
 class TestSetEvaluator(L.Callback):
     def __init__(self, test_dataloader):
+        super().__init__()
         self.test_dataloader = test_dataloader
+        # Define metrics inside the callback
+        self.test_acc = BinaryAccuracy(compute_on_step=False)
+        self.test_f1 = BinaryF1Score(compute_on_step=False)
+        self.test_recall = BinaryRecall(compute_on_step=False)
+        self.test_precision = BinaryPrecision(compute_on_step=False)
 
     def on_validation_epoch_end(self, trainer, pl_module):
         try:
             print("Evaluating test set...")
-            total_metrics = {metric_name: 0.0 for metric_name in pl_module.metrics.keys()}
-            num_batches = 0
 
+            # Reset metrics before evaluation
+            self.test_acc.reset()
+            self.test_f1.reset()
+            self.test_recall.reset()
+            self.test_precision.reset()
+
+            device = pl_module.device
+
+            # Iterate over the test dataloader
             for batch in self.test_dataloader:
-                input_ids = batch["input_ids"].to(pl_module.device)
-                attention_mask = batch["attention_mask"].to(pl_module.device)
-                labels = batch["label"].to(pl_module.device)
+                input_ids = batch["input_ids"].to(device)
+                attention_mask = batch["attention_mask"].to(device)
+                labels = batch["label"].to(device)
 
                 if pl_module.use_token_type_ids:
-                    token_type_ids = batch.get("token_type_ids", None).to(pl_module.device)
+                    token_type_ids = batch.get("token_type_ids", None)
+                    if token_type_ids is not None:
+                        token_type_ids = token_type_ids.to(device)
                     outputs = pl_module(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
                 else:
                     outputs = pl_module(input_ids=input_ids, attention_mask=attention_mask)
 
                 preds = torch.argmax(outputs.logits, dim=1)
 
-                # Accumulate metrics
-                for metric_name, metric_fn in pl_module.metrics.items():
-                    metric_value = metric_fn(preds, labels)
-                    total_metrics[metric_name] += metric_value.item()
+                # Update metrics with this batch
+                self.test_acc.update(preds, labels)
+                self.test_f1.update(preds, labels)
+                self.test_recall.update(preds, labels)
+                self.test_precision.update(preds, labels)
 
-                num_batches += 1
+            # Compute final metrics after processing all test batches
+            test_acc_val = self.test_acc.compute().item()
+            test_f1_val = self.test_f1.compute().item()
+            test_recall_val = self.test_recall.compute().item()
+            test_precision_val = self.test_precision.compute().item()
 
-            # Compute averages
-            for metric_name, total in total_metrics.items():
-                avg_metric = total / num_batches
-                print(f"Logging test_{metric_name}: {avg_metric}")
-                pl_module.log(f"test_{metric_name}", avg_metric, on_epoch=True, prog_bar=True)
+            # Log final metrics
+            pl_module.log("test_acc", test_acc_val, on_epoch=True, prog_bar=True)
+            pl_module.log("test_f1", test_f1_val, on_epoch=True, prog_bar=True)
+            pl_module.log("test_recall", test_recall_val, on_epoch=True, prog_bar=True)
+            pl_module.log("test_precision", test_precision_val, on_epoch=True, prog_bar=True)
         except Exception as e:
             print(f"Error during test evaluation: {e}")
-def set_deterministic_training(seed: int ): 
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+
+def set_deterministic_training(seed: int):
+    # Python & NumPy
+    random.seed(seed)
+    np.random.seed(seed)
+    
+    # PyTorch
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+
+    # Force deterministic algorithms
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    # If you are on PyTorch >= 1.8
+    torch.use_deterministic_algorithms(True)
 
 
 def main(): 
