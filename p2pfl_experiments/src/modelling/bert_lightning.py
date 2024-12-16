@@ -38,20 +38,20 @@ class BERTLightningModel(L.LightningModule):
         self.lr = lr
         
         # Metrics for each phase (set compute_on_step=False to aggregate over entire epoch)
-        self.train_acc = BinaryAccuracy(compute_on_step=False)
-        self.train_f1 = BinaryF1Score(compute_on_step=False)
-        self.train_recall = BinaryRecall(compute_on_step=False)
-        self.train_precision = BinaryPrecision(compute_on_step=False)
+        self.train_acc = BinaryAccuracy()
+        self.train_f1 = BinaryF1Score()
+        self.train_recall = BinaryRecall()
+        self.train_precision = BinaryPrecision()
 
-        self.val_acc = BinaryAccuracy(compute_on_step=False)
-        self.val_f1 = BinaryF1Score(compute_on_step=False)
-        self.val_recall = BinaryRecall(compute_on_step=False)
-        self.val_precision = BinaryPrecision(compute_on_step=False)
+        self.val_acc = BinaryAccuracy()
+        self.val_f1 = BinaryF1Score()
+        self.val_recall = BinaryRecall()
+        self.val_precision = BinaryPrecision()
 
-        self.test_acc = BinaryAccuracy(compute_on_step=False)
-        self.test_f1 = BinaryF1Score(compute_on_step=False)
-        self.test_recall = BinaryRecall(compute_on_step=False)
-        self.test_precision = BinaryPrecision(compute_on_step=False)
+        self.test_acc = BinaryAccuracy()
+        self.test_f1 = BinaryF1Score()
+        self.test_recall = BinaryRecall()
+        self.test_precision = BinaryPrecision()
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.test_step_outputs: list[dict] = []

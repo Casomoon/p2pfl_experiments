@@ -1,5 +1,6 @@
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 from ..modelling.bert_lightning import BERTLightningModel
 from ..modelling.nli_data_load import NLIParser
 from ..modelling.nli_pl_wrapper import NLIDataModule
@@ -27,10 +28,10 @@ class TestSetEvaluator(L.Callback):
         super().__init__()
         self.test_dataloader = test_dataloader
         # Define metrics inside the callback
-        self.test_acc = BinaryAccuracy(compute_on_step=False)
-        self.test_f1 = BinaryF1Score(compute_on_step=False)
-        self.test_recall = BinaryRecall(compute_on_step=False)
-        self.test_precision = BinaryPrecision(compute_on_step=False)
+        self.test_acc = BinaryAccuracy()
+        self.test_f1 = BinaryF1Score()
+        self.test_recall = BinaryRecall()
+        self.test_precision = BinaryPrecision()
 
     def on_validation_epoch_end(self, trainer, pl_module):
         try:
@@ -101,7 +102,7 @@ def main():
     set_deterministic_training(420)
     torch.set_float32_matmul_precision("medium")
     csv_logger = CSVLogger(save_dir=csv_save, name="SingleBertTraining")
-    data_parser = NLIParser(mnli_data_path, 1, [1.0], model_name="bert", batch_size=1, shuffle = True, overall_cut=0.)
+    data_parser = NLIParser(mnli_data_path, 1, [1.0], model_name="bert", batch_size=1, shuffle = True, overall_cut=0.999)
     data_module:P2PFLDataset = data_parser.get_non_iid_split()[0]
     train = data_module.export(PyTorchExportStrategy,"train")
     val = data_module.export(PyTorchExportStrategy,"valid")
