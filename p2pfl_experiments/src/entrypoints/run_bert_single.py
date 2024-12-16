@@ -102,7 +102,7 @@ def main():
     set_deterministic_training(420)
     torch.set_float32_matmul_precision("medium")
     csv_logger = CSVLogger(save_dir=csv_save, name="SingleBertTraining")
-    data_parser = NLIParser(mnli_data_path, 1, [1.0], model_name="bert", batch_size=1, shuffle = True, overall_cut=0.999)
+    data_parser = NLIParser(mnli_data_path, 1, [1.0], model_name="bert", batch_size=1, shuffle = True, overall_cut=0.0)
     data_module:P2PFLDataset = data_parser.get_non_iid_split()[0]
     train = data_module.export(PyTorchExportStrategy,"train")
     val = data_module.export(PyTorchExportStrategy,"valid")
