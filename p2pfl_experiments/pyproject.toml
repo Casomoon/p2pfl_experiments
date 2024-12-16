@@ -12,7 +12,9 @@ packages = [
 run_bert_p2p = "src.entrypoints.run_bert_p2p_experiment:main"
 run_bert_single = "src.entrypoints.run_bert_single:main"
 run_mlp = "src.entrypoints.run_mlp_p2p_test:main"
-visualize = "src.entrypoints.run_visualize_results:main"
+visualize_p2p = "src.entrypoints.run_visualize_results:main"
+visualize_single = "src.entrypoints.run_bert_vis_single:main"
+
 
 [tool.poetry.dependencies]
 python = "3.9.20"

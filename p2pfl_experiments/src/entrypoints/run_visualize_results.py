@@ -10,5 +10,6 @@ def main():
     results_dir: Path = root/"run_results"/args.dir 
     assert results_dir.exists()
     analyzer = DFLAnalyzer(results_dir)
-    analyzer.sep_train_val_test()
-    analyzer.plot_metrics()
+    #analyzer.sep_train_val_test()
+    #analyzer.plot_metrics()
+    analyzer.plot_model_divergence()
