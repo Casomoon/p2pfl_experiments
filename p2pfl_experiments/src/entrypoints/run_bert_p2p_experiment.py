@@ -20,7 +20,7 @@ from p2pfl.settings import Settings
 import argparse
 import math
 import random
-from transformers import set_seed
+import transformers
 # call the overwrite of Settings before anything else
 def parse_args(): 
     # base params
@@ -189,8 +189,8 @@ def set_deterministic_training(seed: int):
 
     # If you are on PyTorch >= 1.8
     torch.use_deterministic_algorithms(True)
-
-    set_seed(seed)
+    # transformers 
+    transformers.set_seed(seed)
 def log_gpu_settings():
     logger.info("main", f"CUDA availabru {torch.cuda.is_available()}")
     logger.info("main", f"CUDA GPU {torch.cuda.get_device_name(0)}")

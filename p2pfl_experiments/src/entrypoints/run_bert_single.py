@@ -6,6 +6,7 @@ from ..modelling.nli_data_load import NLIParser
 from ..modelling.nli_pl_wrapper import NLIDataModule
 from torch.utils.data import Dataset, DataLoader
 from torchmetrics.classification import BinaryAccuracy, BinaryF1Score, BinaryRecall, BinaryPrecision
+import transformers
 import numpy as np
 import lightning as L
 from lightning import Trainer
@@ -36,14 +37,18 @@ class TestSetEvaluator(L.Callback):
     def on_validation_epoch_end(self, trainer, pl_module):
         try:
             print("Evaluating test set...")
-
+            device = pl_module.device
+            self.test_acc.to(device)
+            self.test_f1.to(device)
+            self.test_recall.to(device)
+            self.test_precision.to(device)
             # Reset metrics before evaluation
             self.test_acc.reset()
             self.test_f1.reset()
             self.test_recall.reset()
             self.test_precision.reset()
 
-            device = pl_module.device
+            
 
             # Iterate over the test dataloader
             for batch in self.test_dataloader:
@@ -85,18 +90,18 @@ def set_deterministic_training(seed: int):
     # Python & NumPy
     random.seed(seed)
     np.random.seed(seed)
-    
     # PyTorch
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
+    # PyTorch >=1.8
+    torch.use_deterministic_algorithms(True)
     # Force deterministic algorithms
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-    # If you are on PyTorch >= 1.8
-    torch.use_deterministic_algorithms(True)
-
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+    # transformers  
+    transformers.set_seed(seed)
+  
 
 def main(): 
     set_deterministic_training(420)
