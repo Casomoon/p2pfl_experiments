@@ -96,7 +96,7 @@ class DFLAnalyzer():
             plt.savefig(plot_analyzation/f"{metric_names[metric]}.png", bbox_inches='tight')
             plt.close(fig=fig)
 
-    def plot_model_divergence(self, start_round:int=1, end_round:int=3): 
+    def plot_model_divergence(self, start_round:int=1, end_round:int=2): 
         plot_analyzation = self.run_dir/"plots"
         model_paths = [cl_dir/f"BERT_Lightning_{int(cl_dir.stem.split(sep='_')[1])}" for cl_dir in self.client_dirs]
         avg_divs = []
@@ -111,12 +111,12 @@ class DFLAnalyzer():
         # actually plot it now 
         print(f"avg_divs : {avg_divs}")
         plt.figure(figsize=(8, 5))
-        plt.plot([1,2,3], avg_divs, marker='o', linestyle='-', linewidth=2)
+        plt.plot([1,2], avg_divs, marker='o', linestyle='-', linewidth=2)
         plt.title('Durchschnittliche Modeldivergenz zwischen Runden', fontsize=14)
         plt.xlabel('Runde', fontsize=12)
         plt.ylabel('Divergenz (L2 Norm)', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.xticks([1,2,3], fontsize=10)
+        plt.xticks([1,2], fontsize=10)
         plt.yticks(fontsize=10)
         plt.tight_layout()
         plt.savefig(fname=plot_analyzation/"model_div.png")
