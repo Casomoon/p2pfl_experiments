@@ -102,7 +102,9 @@ class DFLAnalyzer():
         avg_divs = []
         for round in range(start_round, end_round+1):
             paths_this_round = [path.with_name(f"{path.name}_{round}.pth") for path in model_paths]
-            for path in paths_this_round: assert path.exists()
+            for path in paths_this_round: 
+                print(f"Assert Path {path} exists.")
+                assert path.exists()
             ru_su = self.ru_su_average_model(paths_this_round)
             avg_div_this_round = self.get_avg_div(ru_su, paths_this_round).to("cpu")
             avg_divs.append(avg_div_this_round)
