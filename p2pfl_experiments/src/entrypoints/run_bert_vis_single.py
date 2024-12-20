@@ -21,6 +21,7 @@ def plot_single_bert(csv_loc: Path, eval_dir: Path):
     test_metrics = metrics[[col for col in metrics.columns if col.startswith("test_") or col == "epoch"]]
     test_metrics.dropna(inplace=True)
     
+    test_metrics['epoch'] = test_metrics['epoch'] + 1
     # Plot the test metrics
     plt.figure(figsize=(10, 6))
     for metric in test_metrics.columns:
@@ -30,6 +31,7 @@ def plot_single_bert(csv_loc: Path, eval_dir: Path):
     plt.title('Test Metrics Over Epochs')
     plt.xlabel('Epoch')
     plt.ylabel('Metric Value')
+    plt.xticks(ticks=test_metrics['epoch'].unique(), labels=test_metrics['epoch'].unique().astype(int))
     plt.legend()
     plt.grid()
     plt.savefig(eval_dir/"test_metrics.png")

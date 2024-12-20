@@ -3,8 +3,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 from ..modelling.bert_lightning import BERTLightningModel
 from ..modelling.nli_data_load import NLIParser
-from ..modelling.nli_pl_wrapper import NLIDataModule
-from torch.utils.data import Dataset, DataLoader
 from torchmetrics.classification import BinaryAccuracy, BinaryF1Score, BinaryRecall, BinaryPrecision
 import transformers
 import numpy as np
@@ -14,7 +12,7 @@ from lightning.pytorch.loggers import CSVLogger
 from pathlib import Path
 import torch
 import gc 
-from p2pfl.learning.dataset.p2pfl_dataset import DataExportStrategy, P2PFLDataset
+from p2pfl.learning.dataset.p2pfl_dataset import P2PFLDataset
 from p2pfl.learning.pytorch.lightning_dataset import PyTorchExportStrategy
 import random
 root = Path(__file__).resolve().parents[2]
@@ -126,7 +124,6 @@ def main():
         num_sanity_val_steps=0,
         callbacks=[test_set_evaluator]
     )
-    print(trainer.callbacks)
     # Train the model
     trainer.fit(bert_model,train_dataloaders=train, val_dataloaders=val)
     
