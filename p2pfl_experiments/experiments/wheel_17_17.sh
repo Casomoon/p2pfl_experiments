@@ -16,6 +16,9 @@ gossip_ttl=15
 # niid
 niid_data_amount=True
 
+sopti="SGD"
+lr=3e-4
+
 srun poetry run run_bert_p2p \
         --model_name "$model_name"\
         --structure "$structure"\
@@ -28,4 +31,6 @@ srun poetry run run_bert_p2p \
         --gossip_models_period "$gossip_models_period"\
         --gossip_messages_per_period "$gossip_messages_per_period"\
         --gossip_ttl "$gossip_ttl"\
-        --niid_data_amount "$niid_data_amount"
+        --niid_data_amount "$niid_data_amount"\
+        --learning_rate "$lr"\
+        --optimizer "$opti"

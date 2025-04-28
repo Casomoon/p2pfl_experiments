@@ -18,7 +18,7 @@ niid_data_amount=True
 opti="SGD"
 lr=3e-4
 
-poetry run run_bert_p2p \
+srun poetry run run_bert_p2p \
         --model_name "$model_name"\
         --structure "$structure"\
         --nr_nodes "$nr_nodes"\
