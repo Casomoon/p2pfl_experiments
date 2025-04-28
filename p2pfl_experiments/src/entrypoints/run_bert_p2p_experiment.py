@@ -15,6 +15,9 @@ GOSSIP_MESSAGES_PER_PERIOD: int
 GOSSIP_TTL: int
 # niid
 NIID_DATA_AMOUNT: bool 
+#opti
+OPTI: str
+LR: float 
 
 from p2pfl.settings import Settings
 import argparse
@@ -25,6 +28,8 @@ import transformers
 def parse_args(): 
     # base params
     global MODEL_NAME, STRUCTURE, NR_NODES, NR_LEARNERS, ROUNDS, EPOCHS_PER_ROUND, BATCH_SIZE, DATA_DIST_WEIGHTS, EXPERIMENT_NAME
+    # added for new experiments
+    global OPTI, LR
     # gossip params
     global GOSSIP_MODELS_PER_ROUND, GOSSIP_MODELS_PERIOD, GOSSIP_MESSAGES_PER_PERIOD, GOSSIP_TTL
     # niid data dist
@@ -37,6 +42,8 @@ def parse_args():
     parser.add_argument("--nr_learners", type=int, default=20, help="Number of learners")
     parser.add_argument("--rounds", type=int, default=10, help="Number of training rounds")
     parser.add_argument("--epochs_per_round", type=int, default=1, help="Epochs per round")
+    parser.add_argument("--optimizer", type=str, default="SGD", help = "The optimizer used.")
+    parser.add_argument("--learning_rate", type=float, default="Learning rate for the optimizer used.")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size")
     parser.add_argument("--connection_prob", type=float, default=0.5, help="Connection probability for mesh structure")
     # gossip parameters  
@@ -66,6 +73,8 @@ def parse_args():
 
     assert args.niid_data_amount is not None
     NIID_DATA_AMOUNT = args.niid_data_amount
+    LR = args.learning_rate
+    OPTI = args.optimizer
     # Set EXPERIMENT_NAME based on the values provided
     EXPERIMENT_NAME = f"{MODEL_NAME}_{STRUCTURE}_{NR_NODES}_{ROUNDS}_{EPOCHS_PER_ROUND}_GOSS_{GOSSIP_MESSAGES_PER_PERIOD}_{GOSSIP_MODELS_PER_ROUND}_{GOSSIP_MODELS_PERIOD}_{GOSSIP_TTL}_NIID_DATA_DIST_{NIID_DATA_AMOUNT}"
 def set_test_settings() -> None:
@@ -164,7 +173,8 @@ def log_run_settings()-> None:
     logger.info("main", f"EXPERIMENT_NAME : {EXPERIMENT_NAME}")
     # niid 
     logger.info("main", f"NIID_DATA_AMOUNTS: {NIID_DATA_AMOUNT}")
-
+    # opti 
+    logger.info("main", f"Optimizer {OPTI} with LR of {LR}")
 def setup_results_dir(): 
     base_results_dir: Path = Path(__file__).resolve().parents[2]/"run_results"
     if not base_results_dir.exists():
@@ -178,15 +188,12 @@ def set_deterministic_training(seed: int):
     # Python & NumPy
     random.seed(seed)
     np.random.seed(seed)
-    
     # PyTorch
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
     # Force deterministic algorithms
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
     # If you are on PyTorch >= 1.8
     torch.use_deterministic_algorithms(True)
     # transformers 
@@ -231,10 +238,9 @@ def main():
         equal_split = float(1/NR_NODES)
         iid_amount_dist = [equal_split for _ in range(NR_NODES)]
         data_dist = iid_amount_dist
-    print(sum(data_dist))
     assert math.isclose(sum(data_dist),1.0,rel_tol=1e-5)    
     logger.info("main", f"Generating data dist {data_dist}")
-    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, data_dist, MODEL_NAME, BATCH_SIZE, overall_cut=0.00)
+    nli_data_parser = NLIParser(mnli_data_path, NR_NODES, data_dist, MODEL_NAME, BATCH_SIZE, validation_split=0.1, overall_cut=0.00)
     # prepare the data split initially 
     data_modules = nli_data_parser.get_non_iid_split()
     # create the directory to drop off the results of the run during the run.
@@ -246,8 +252,10 @@ def main():
                                                 cid=i,
                                                 model_name= MODEL_NAME,
                                                 num_labels=2,
-                                                lr=2e-5,
-                                                base_dir=run_dir)),
+                                                lr=LR,
+                                                base_dir=run_dir,
+                                                optimizer=OPTI
+                                                )),
                         data = data_modules[i], 
                         address = f"BERT_{i}", 
                         protocol = InMemoryCommunicationProtocol,
@@ -260,13 +268,8 @@ def main():
     from ..modelling.topologies_hardcoded import get_topology
     topology_function = get_topology(STRUCTURE)
     topology_function(nodes_refs)
-    # only direct !, refer
     wait_n_neigh(nodes_refs, NR_NODES -1 , only_direct=True)
     nodes_refs[15].set_start_learning(rounds=ROUNDS, epochs = EPOCHS_PER_ROUND)
     logger.info("main", "15 started")
-    #nodes_refs[0].set_start_learning(rounds = ROUNDS, epochs = EPOCHS_PER_ROUND)
-    #logger.info("main", "0 started")
-    #nodes_refs[6].set_start_learning(rounds = ROUNDS, epochs = EPOCHS_PER_ROUND)
-    #logger.info("main", "6 started")
     one_day_in_sec = 86400 
     wait_to_finish(nodes_refs, one_day_in_sec)

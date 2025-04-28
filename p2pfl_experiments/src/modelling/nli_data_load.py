@@ -4,13 +4,12 @@ import pandas as pd
 import gc
 import math 
 from copy import deepcopy
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import random_split
 from pathlib import Path
 from collections import defaultdict, Counter
 from p2pfl.management.logger import logger
 from p2pfl.learning.dataset.p2pfl_dataset import P2PFLDataset
 from .bert_zoo import get_tokenizer_by_string
-from .nli_pl_wrapper import NLIDataset
 from datasets import Dataset, DatasetDict
 
 
@@ -123,9 +122,6 @@ class NLIParser():
         # encode all datasets 
         trains_encoded, vals_encoded, global_test_encoded = self.encode(train_dfs, val_dfs, global_test_df)
         # transform to p2pfl datasets  
-        #nli_data_modules = self.to_data_modules(trains_encoded, vals_encoded, global_test_encoded, self.batch_size)
-        #self.nli_data_modules = nli_data_modules
-        ##return self.nli_data_modules
         for i in range(len(trains_encoded)): 
             self.sanity_check(trains_encoded[i], "train")
             self.sanity_check(vals_encoded[i], "val")
@@ -263,17 +259,6 @@ class NLIParser():
         logger.info(self.module_name, f"Batch tokenization completed for {len(df)} samples.")
         return encoded_data
     
-    #def to_data_modules(self, train_sets: list[list[dict]], val_sets: list[list[dict]], test_set: list[dict], batch_size: int = 8)-> list[NLIDataModule]: 
-    #    assert len(train_sets) == len(val_sets)
-    #    nli_data_modules: list[P2PFLDataset] = []
-    #    global_test_loader = DataLoader(NLIDataset(cid = 500, phase="test", data = test_set, train = True), batch_size = self.batch_size, shuffle = True, num_workers = 2 )
-    #    for i in range(len(train_sets)): 
-    #        train_loader = DataLoader(NLIDataset(cid = i, phase = "train", data = train_sets[i], train = True), batch_size = self.batch_size, shuffle = True, num_workers = 2)
-    #        val_loader   = DataLoader(NLIDataset(cid = i, phase = "val", data = val_sets[i], train = True), batch_size = self.batch_size, shuffle = False, num_workers = 2 )
-    #        clients_dataset = 
-    #        nli_data_modules.append(P2PFLDataset(......))        
-    #    return nli_data_modules
-
     def to_p2p_modules(self, train_sets: list[list[dict]], val_sets: list[list[dict]], test_set: list[dict], batch_size: int = 8)-> list[P2PFLDataset]:
         assert len(train_sets) == len(val_sets)
         p2p_modules: list[P2PFLDataset] = []

@@ -18,6 +18,7 @@ class BERTLightningModel(L.LightningModule):
         model_name: str = "bert", 
         num_labels: int = 2,
         weight_decay: float = 0.01,
+        optimizer: str = "SGD", # either SGD or ADAMW
         lr: float = 2e-5,
         seed: Optional[int] = None,
         base_dir: Path = None
@@ -36,6 +37,7 @@ class BERTLightningModel(L.LightningModule):
             use_token_type_ids = False
         self.use_token_type_ids = use_token_type_ids
         self.lr = lr
+        self.optimizer = optimizer
         
         # Metrics for each phase (set compute_on_step=False to aggregate over entire epoch)
         self.train_acc = BinaryAccuracy()
@@ -60,6 +62,10 @@ class BERTLightningModel(L.LightningModule):
         self.setup_model_results_dir(base_dir)
         self.round = 0
 
+    
+        
+       
+    
     def setup_model_results_dir(self, base_dir: Path):
         node_dir = base_dir/f"node_{self.cid}"
         assert not node_dir.exists()
@@ -79,11 +85,22 @@ class BERTLightningModel(L.LightningModule):
             {'params': [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)],
              'weight_decay': 0.0}
         ]
-        optimizer = torch.optim.AdamW(
-            optimizer_grouped_parameters,
-            lr=self.lr,
-            weight_decay=self.weight_decay
-        )
+        if self.optimizer == "AdamW": 
+            optimizer = torch.optim.AdamW(
+                optimizer_grouped_parameters, 
+                lr = self.lr,
+                weight_decay=self.weight_decay,
+            )
+        elif self.optimizer == "SGD": 
+            optimizer = torch.optim.SGD(
+                optimizer_grouped_parameters, 
+                lr = self.lr,
+                weight_decay=self.weight_decay,
+                momentum=0.9
+
+            )
+        else: raise ValueError("Chosen optimizer is not SGD or AdamW") 
+        
         total_steps = self.trainer.estimated_stepping_batches
         warmup_steps = int(total_steps * 0.1)
         scheduler = get_linear_schedule_with_warmup(
