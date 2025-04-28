@@ -12,4 +12,4 @@ def main():
     analyzer = DFLAnalyzer(results_dir)
     analyzer.sep_train_val_test()
     analyzer.plot_metrics()
-    analyzer.plot_model_divergence()
+    analyzer.plot_model_divergence(1,4)

@@ -96,30 +96,57 @@ class DFLAnalyzer():
             plt.savefig(plot_analyzation/f"{metric_names[metric]}.png", bbox_inches='tight')
             plt.close(fig=fig)
 
-    def plot_model_divergence(self, start_round:int=1, end_round:int=2): 
-        plot_analyzation = self.run_dir/"plots"
-        model_paths = [cl_dir/f"BERT_Lightning_{int(cl_dir.stem.split(sep='_')[1])}" for cl_dir in self.client_dirs]
+    def plot_model_divergence(self, start_round:int=1, end_round:int=2):
+        plot_analyzation = self.run_dir / "plots"
+        plot_analyzation.mkdir(parents=True, exist_ok=True)
+
+        # Prepare model paths
+        model_paths = [
+            cl_dir / f"BERT_Lightning_{int(cl_dir.stem.split(sep='_')[1])}"
+            for cl_dir in self.client_dirs
+        ]
         avg_divs = []
-        for round in range(start_round, end_round+1):
-            paths_this_round = [path.with_name(f"{path.name}_{round}.pth") for path in model_paths]
-            for path in paths_this_round: 
+
+        # Compute average divergences for each round
+        for rnd in range(start_round, end_round + 1):
+            paths_this_round = [path.with_name(f"{path.name}_{rnd}.pth") for path in model_paths]
+            for path in paths_this_round:
                 print(f"Assert Path {path} exists.")
-                assert path.exists()
+                assert path.exists(), f"Model checkpoint not found: {path}"
+
             ru_su = self.ru_su_average_model(paths_this_round)
-            avg_div_this_round = self.get_avg_div(ru_su, paths_this_round).to("cpu")
-            avg_divs.append(avg_div_this_round)
-        # actually plot it now 
-        print(f"avg_divs : {avg_divs}")
+            avg_div = self.get_avg_div(ru_su, paths_this_round).to("cpu")
+            avg_divs.append(avg_div)
+
+        # Save divergences to CSV
+        csv_path = plot_analyzation / "model_divergence.csv"
+        import csv
+        with open(csv_path, mode='w', newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow(["round", "avg_divergence"])
+            for rnd, div in zip(range(start_round, end_round + 1), avg_divs):
+                # If tensor, extract scalar
+                value = div.item() if hasattr(div, 'item') else float(div)
+                writer.writerow([rnd, value])
+        print(f"Saved divergence values to {csv_path}")
+
+        # Plotting
+        rounds = list(range(start_round, end_round + 1))
+        values = [div.item() if hasattr(div, 'item') else float(div) for div in avg_divs]
+
         plt.figure(figsize=(8, 5))
-        plt.plot([1,2], avg_divs, marker='o', linestyle='-', linewidth=2)
+        plt.plot(rounds, values, marker='o', linestyle='-', linewidth=2)
         plt.title('Durchschnittliche Modeldivergenz zwischen Runden', fontsize=14)
         plt.xlabel('Runde', fontsize=12)
         plt.ylabel('Divergenz (L2 Norm)', fontsize=12)
         plt.grid(True, linestyle='--', alpha=0.7)
-        plt.xticks([1,2], fontsize=10)
+        plt.xticks(rounds, fontsize=10)
         plt.yticks(fontsize=10)
         plt.tight_layout()
-        plt.savefig(fname=plot_analyzation/"model_div.png")
+
+        plot_path = plot_analyzation / "model_div.png"
+        plt.savefig(fname=plot_path)
+        print(f"Saved plot to {plot_path}")
     def ru_su_average_model(self, paths:list[Path]):
         ru_su = None
         num_models = len(paths)
