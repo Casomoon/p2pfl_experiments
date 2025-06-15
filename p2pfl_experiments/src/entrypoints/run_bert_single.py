@@ -1,3 +1,9 @@
+"""
+Small script which runs a single BERT training using all the classes built and used for the p2pfl
+use case to make experiments comparable.
+Runs on a Pytorch-Lightning Trainer just like the p2pfl nodes in the simulation do. 
+"""
+
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"

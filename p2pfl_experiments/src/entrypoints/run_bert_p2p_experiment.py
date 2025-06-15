@@ -206,12 +206,13 @@ def main():
     log_run_settings()
     set_deterministic_training(420)
     log_gpu_settings()
-    model_init_blm = BERTLightningModel
+    
     module_adapter : P2PFLModel = LightningModel
     nodes_refs: list[Node] = []
     # create the data distribution
     logger.info("main", f"Extracting mnli data from {mnli_data_path}.")
     data_dist: list[int]
+    # the default niid data distribution
     if NIID_DATA_AMOUNT: 
         niid_data_dist = [
         0.15,  
@@ -235,10 +236,12 @@ def main():
         
         data_dist = niid_data_dist
     else: 
+        # iid equal data dist 
         equal_split = float(1/NR_NODES)
         iid_amount_dist = [equal_split for _ in range(NR_NODES)]
         data_dist = iid_amount_dist
     assert math.isclose(sum(data_dist),1.0,rel_tol=1e-5)    
+    model_init_blm: object = BERTLightningModel
     logger.info("main", f"Generating data dist {data_dist}")
     nli_data_parser = NLIParser(mnli_data_path, NR_NODES, data_dist, MODEL_NAME, BATCH_SIZE, validation_split=0.1, overall_cut=0.00)
     # prepare the data split initially 
